@@ -1,0 +1,525 @@
+BEGIN;
+
+-- ────────────────
+-- 1) EXTENSIONS
+-- ────────────────
+CREATE EXTENSION IF NOT EXISTS pgcrypto;  -- gen_random_uuid()
+CREATE EXTENSION IF NOT EXISTS citext;    -- case-insensitive email
+
+
+-- ──────────
+-- 2) ENUMS  
+-- ──────────
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname='event_status') THEN
+    CREATE TYPE event_status AS ENUM ('DRAFT','PUBLISHED','CANCELLED','COMPLETED');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname='visibility') THEN
+    CREATE TYPE visibility AS ENUM ('PUBLIC','UNLISTED','PRIVATE');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname='order_status') THEN
+    CREATE TYPE order_status AS ENUM
+      ('DRAFT','PENDING','PAID','CANCELLED','EXPIRED','REFUNDED','PENDING_REFUND','FAILED','PARTIALLY_REFUNDED');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname='payment_status') THEN
+    CREATE TYPE payment_status AS ENUM
+      ('REQUIRES_ACTION','PENDING','SUCCEEDED','FAILED','CANCELLED','REFUNDED','PARTIALLY_REFUNDED');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname='ticket_status') THEN
+    CREATE TYPE ticket_status AS ENUM ('ACTIVE','CANCELLED','REFUNDED','CHECKED_IN');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname='device_type') THEN
+    CREATE TYPE device_type AS ENUM ('IOS','ANDROID','WEB');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname='notification_channel') THEN
+    CREATE TYPE notification_channel AS ENUM ('EMAIL','PUSH','SMS','IN_APP');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname='notification_status') THEN
+    CREATE TYPE notification_status AS ENUM ('QUEUED','SENT','FAILED');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname='payment_provider') THEN
+    CREATE TYPE payment_provider AS ENUM ('STRIPE');   -- locked to Stripe
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname='payment_method') THEN
+    CREATE TYPE payment_method AS ENUM ('CARD');       -- locked to Card
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname='idempotency_scope') THEN
+    CREATE TYPE idempotency_scope AS ENUM ('ORDER','PAYMENT','NOTIFICATION');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname='event_type') THEN
+    CREATE TYPE event_type AS ENUM
+      ('CONFERENCE','MEETUP','WORKSHOP','WEBINAR','LIVE','PERFORMANCE','OTHER');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname='ticket_kind') THEN
+    CREATE TYPE ticket_kind AS ENUM
+      ('GENERAL','VIP','EARLY_BIRD','STUDENT','WORKSHOP','ADD_ON',
+       'DAY_PASS','MULTI_DAY','COMP','VENDOR','STAFF','DONATION');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname='us_state') THEN
+    CREATE TYPE us_state AS ENUM (
+      'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA',
+      'KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ',
+      'NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT',
+      'VA','WA','WV','WI','WY','DC','PR','VI','GU','AS','MP'
+    );
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname='tz_us4') THEN
+    CREATE TYPE tz_us4 AS ENUM (
+      'America/New_York',     -- ET
+      'America/Chicago',      -- CT
+      'America/Denver',       -- MT
+      'America/Los_Angeles'   -- PT
+    );
+  END IF;
+END$$;
+
+
+-- ──────────────────────
+-- 3) HELPER FUNCTIONS
+-- ──────────────────────
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.updated_at := now();
+  RETURN NEW;
+END$$;
+
+
+-- ────────────────────
+-- 4) CORE TABLES
+-- ────────────────────
+
+-- Organizations
+CREATE TABLE IF NOT EXISTS organizations (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       text NOT NULL,
+  slug       text NOT NULL UNIQUE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Users 
+CREATE TABLE IF NOT EXISTS users (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  email         citext NOT NULL UNIQUE,
+  password_hash text   NOT NULL,
+  last_name     text   NOT NULL,
+  first_name    text   NOT NULL,
+  phone         text,
+  timezone      tz_us4 NOT NULL DEFAULT 'America/New_York',
+  is_verified   boolean NOT NULL DEFAULT false,
+  magicbell_external_id text UNIQUE,
+  stripe_customer_id    text,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  updated_at    timestamptz NOT NULL DEFAULT now()
+);
+
+-- Roles & mapping
+CREATE TABLE IF NOT EXISTS roles (
+  name text PRIMARY KEY  
+);
+INSERT INTO roles(name) VALUES ('ADMIN'),('ORGANIZER'),('ATTENDEE'),('VENDOR')
+ON CONFLICT DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS user_roles (
+  user_id    uuid REFERENCES users(id) ON DELETE CASCADE,
+  role_name  text REFERENCES roles(name) ON DELETE RESTRICT,
+  granted_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, role_name)
+);
+
+-- Venues (US addressing, IANA TZ)
+CREATE TABLE IF NOT EXISTS venues (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id       uuid REFERENCES organizations(id) ON DELETE CASCADE,
+  name         text NOT NULL,
+  address1     text NOT NULL,                    
+  address2     text,                             
+  city         text NOT NULL,                    
+  state_code   us_state NOT NULL,                
+  postal_code  text NOT NULL,                    
+  country_code char(2) NOT NULL DEFAULT 'US',    
+  timezone     tz_us4 NOT NULL DEFAULT 'America/New_York',
+  capacity     integer CHECK (capacity IS NULL OR capacity >= 0),
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT venues_country_is_us CHECK (country_code = 'US'),
+  CONSTRAINT venues_postal_is_us_zip CHECK (postal_code ~ '^[0-9]{5}(-[0-9]{4})?$')
+);
+
+-- Events 
+CREATE TABLE IF NOT EXISTS events (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id         uuid REFERENCES organizations(id) ON DELETE CASCADE,
+  venue_id       uuid REFERENCES venues(id) ON DELETE SET NULL,
+  title          text NOT NULL,
+  slug           text NOT NULL,  
+  summary        text,
+  description_md text,
+  status         event_status NOT NULL DEFAULT 'DRAFT',
+  visibility     visibility   NOT NULL DEFAULT 'PUBLIC',
+  event_type     event_type   NOT NULL DEFAULT 'LIVE',
+  capacity       integer CHECK (capacity IS NULL OR capacity >= 0),
+  timezone       tz_us4 NOT NULL DEFAULT 'America/New_York',
+  start_at       timestamptz NOT NULL,
+  end_at         timestamptz NOT NULL,
+  sales_start_at timestamptz,
+  sales_end_at   timestamptz,
+  is_online      boolean NOT NULL DEFAULT false,
+  stream_url     text,
+  cover_image_url text,
+  tags           text[] NOT NULL DEFAULT '{}',
+  search_vector  tsvector GENERATED ALWAYS AS (
+    setweight(to_tsvector('simple',  coalesce(title,'')), 'A') ||
+    setweight(to_tsvector('english', coalesce(summary,'')), 'B') ||
+    setweight(to_tsvector('english', coalesce(description_md,'')), 'C') ||
+    setweight(to_tsvector('simple',  array_to_string(tags,' ')), 'B')
+  ) STORED,
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  updated_at     timestamptz NOT NULL DEFAULT now(),
+  CHECK (start_at < end_at),
+  CHECK (sales_start_at IS NULL OR sales_end_at IS NULL OR sales_start_at <= sales_end_at),
+  UNIQUE (org_id, slug)
+);
+
+-- Ticket catalog (per-event)
+CREATE TABLE IF NOT EXISTS ticket_types (
+  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id         uuid NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  name             text NOT NULL,
+  description_md   text,
+  kind             ticket_kind NOT NULL DEFAULT 'GENERAL',
+  price_cents      integer NOT NULL CHECK (price_cents >= 0),
+  currency         char(3) NOT NULL DEFAULT 'USD',
+  quantity_total   integer CHECK (quantity_total IS NULL OR quantity_total >= 0),
+  per_user_limit   integer CHECK (per_user_limit IS NULL OR per_user_limit > 0),
+  sales_start_at   timestamptz,
+  sales_end_at     timestamptz,
+  is_active        boolean NOT NULL DEFAULT true,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  updated_at       timestamptz NOT NULL DEFAULT now(),
+  CHECK (sales_start_at IS NULL OR sales_end_at IS NULL OR sales_start_at <= sales_end_at),
+  CONSTRAINT ticket_types_currency_is_usd CHECK (currency = 'USD')
+);
+
+-- Orders (Stripe Tax snapshot fields + guest checkout)
+CREATE TABLE IF NOT EXISTS orders (
+  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id         uuid NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  purchaser_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+  purchaser_email  citext NOT NULL,
+  status           order_status NOT NULL DEFAULT 'DRAFT',
+  subtotal_cents   integer NOT NULL DEFAULT 0 CHECK (subtotal_cents >= 0),
+  discount_cents   integer NOT NULL DEFAULT 0 CHECK (discount_cents >= 0),
+  fees_cents       integer NOT NULL DEFAULT 0 CHECK (fees_cents >= 0),
+  tax_cents        integer NOT NULL DEFAULT 0 CHECK (tax_cents >= 0),
+  total_cents      integer NOT NULL DEFAULT 0 CHECK (total_cents >= 0),
+  currency         char(3) NOT NULL DEFAULT 'USD',
+  -- Stripe Tax: billing address snapshot
+  customer_address_line1   text,
+  customer_address_line2   text,
+  customer_city            text,
+  customer_state_code      us_state,
+  customer_postal_code     text,
+  customer_country_code    char(2) DEFAULT 'US',
+  payment_due_at   timestamptz,
+  expires_at       timestamptz,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  updated_at       timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT orders_currency_is_usd CHECK (currency = 'USD'),
+  CONSTRAINT orders_customer_country_is_us CHECK (customer_country_code IS NULL OR customer_country_code = 'US'),
+  CONSTRAINT orders_customer_zip_format CHECK (customer_postal_code IS NULL OR customer_postal_code ~ '^[0-9]{5}(-[0-9]{4})?$')
+);
+
+-- Order items (with composite uniqueness for cross-table FK from tickets)
+CREATE TABLE IF NOT EXISTS order_items (
+  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id         uuid NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  ticket_type_id   uuid NOT NULL REFERENCES ticket_types(id) ON DELETE RESTRICT,
+  quantity         integer NOT NULL CHECK (quantity > 0),
+  unit_price_cents integer NOT NULL CHECK (unit_price_cents >= 0),
+  total_cents      integer NOT NULL CHECK (total_cents >= 0),
+  metadata         jsonb NOT NULL DEFAULT '{}'::jsonb,
+  UNIQUE (id, order_id)
+);
+
+-- Payments (Stripe Checkout + PaymentIntent)
+CREATE TABLE IF NOT EXISTS payments (
+  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id            uuid NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  provider            payment_provider NOT NULL DEFAULT 'STRIPE',
+  provider_payment_id text,           
+  status              payment_status NOT NULL DEFAULT 'PENDING',
+  amount_cents        integer NOT NULL CHECK (amount_cents >= 0),
+  currency            char(3) NOT NULL DEFAULT 'USD',
+  method              payment_method  NOT NULL DEFAULT 'CARD',
+  -- Stripe Checkout Session + PaymentIntent
+  provider_session_id text,           -- cs_...
+  checkout_mode       text,           -- 'payment' | 'setup' | 'subscription'
+  checkout_status     text,           -- 'open' | 'complete' | 'expired'
+  payment_intent_id   text,           -- pi_...
+  received_at         timestamptz,
+  created_at          timestamptz NOT NULL DEFAULT now(),
+  updated_at          timestamptz NOT NULL DEFAULT now(),
+  CHECK (provider = 'STRIPE'),
+  CHECK (method   = 'CARD'),
+  CHECK (currency = 'USD')
+);
+
+-- Attendees
+CREATE TABLE IF NOT EXISTS attendees (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    uuid REFERENCES users(id) ON DELETE SET NULL,
+  full_name  text NOT NULL,
+  email      citext NOT NULL,
+  phone      text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Tickets (composite FK ensures order_item belongs to same order)
+CREATE TABLE IF NOT EXISTS tickets (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id       uuid NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  order_id       uuid NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  order_item_id  uuid NOT NULL REFERENCES order_items(id) ON DELETE CASCADE,
+  ticket_type_id uuid NOT NULL REFERENCES ticket_types(id) ON DELETE RESTRICT,
+  attendee_id    uuid NOT NULL REFERENCES attendees(id) ON DELETE RESTRICT,
+  short_code     text UNIQUE,
+  qr_token       text UNIQUE NOT NULL DEFAULT encode(gen_random_bytes(16),'hex'),
+  status         ticket_status NOT NULL DEFAULT 'ACTIVE',
+  issued_at      timestamptz NOT NULL DEFAULT now(),
+  cancelled_at   timestamptz,
+  CONSTRAINT tickets_order_item_belongs_to_order
+    FOREIGN KEY (order_item_id, order_id)
+    REFERENCES order_items (id, order_id)
+    ON DELETE CASCADE
+);
+
+-- Check-ins (one per ticket at event level)
+CREATE TABLE IF NOT EXISTS check_ins (
+  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  ticket_id          uuid NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+  event_id           uuid NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  scanned_by_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+  device_label       text,
+  created_at         timestamptz NOT NULL DEFAULT now()
+);
+
+-- Inventory reservations (oversell protection)
+CREATE TABLE IF NOT EXISTS inventory_reservations (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  ticket_type_id uuid NOT NULL REFERENCES ticket_types(id) ON DELETE CASCADE,
+  order_id       uuid,
+  quantity       integer NOT NULL CHECK (quantity > 0),
+  expires_at     timestamptz NOT NULL,
+  created_at     timestamptz NOT NULL DEFAULT now()
+);
+
+-- Outbox 
+CREATE TABLE IF NOT EXISTS outbox_events (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  topic         text NOT NULL,                 -- e.g., 'order.paid','event.updated'
+  aggregate     text NOT NULL,                 -- 'order','event','ticket'
+  aggregate_id  uuid,
+  payload       jsonb NOT NULL,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  published_at  timestamptz
+);
+
+-- Devices (push tokens)
+CREATE TABLE IF NOT EXISTS devices (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       uuid REFERENCES users(id) ON DELETE CASCADE,
+  device_type   device_type NOT NULL,       -- IOS/ANDROID/WEB
+  push_token    text NOT NULL,              -- APNs / FCM / Web Push endpoint
+  web_p256dh    text,                       -- Web Push (VAPID)
+  web_auth      text,                       -- Web Push (VAPID)
+  app_version   text,
+  os_version    text,
+  locale        text,
+  last_seen_at  timestamptz,
+  fail_count    integer NOT NULL DEFAULT 0,
+  disabled_at   timestamptz,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (device_type, push_token)
+);
+
+-- Notification preferences 
+CREATE TABLE IF NOT EXISTS user_notification_prefs (
+  user_id          uuid PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  email_enabled    boolean NOT NULL DEFAULT true,
+  push_enabled     boolean NOT NULL DEFAULT true,
+  sms_enabled      boolean NOT NULL DEFAULT false,
+  in_app_enabled   boolean NOT NULL DEFAULT true,
+  quiet_hours_json jsonb NOT NULL DEFAULT '{}'::jsonb,  -- e.g. {"start":"21:00","end":"07:00","tz":"America/New_York"}
+  locale           text
+);
+
+-- Notifications (+ MagicBell returned id)
+CREATE TABLE IF NOT EXISTS notifications (
+  id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id                uuid REFERENCES organizations(id) ON DELETE CASCADE,
+  event_id              uuid REFERENCES events(id) ON DELETE CASCADE,
+  title                 text NOT NULL,
+  body_md               text,
+  channel               notification_channel NOT NULL,
+  status                notification_status NOT NULL DEFAULT 'QUEUED',
+  target_user_id        uuid REFERENCES users(id) ON DELETE SET NULL,
+  target_attendee_email citext,
+  published_by          uuid REFERENCES users(id) ON DELETE SET NULL,
+  scheduled_at          timestamptz,
+  sent_at               timestamptz,
+  error_message         text,
+  magicbell_notification_id text UNIQUE,
+  created_at            timestamptz NOT NULL DEFAULT now(),
+  updated_at            timestamptz NOT NULL DEFAULT now()
+);
+
+-- Idempotency keys
+CREATE TABLE IF NOT EXISTS idempotency_keys (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  scope           idempotency_scope NOT NULL,  -- 'ORDER','PAYMENT','NOTIFICATION'
+  key             text NOT NULL,               -- client-supplied key
+  request_hash    text,
+  response_status integer,
+  response_body   jsonb,
+  locked_at       timestamptz,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (scope, key)
+);
+
+-- Webhook capture (Stripe)
+CREATE TABLE IF NOT EXISTS webhook_events (
+  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider           payment_provider NOT NULL DEFAULT 'STRIPE',
+  event_type         text NOT NULL,
+  provider_event_id  text NOT NULL,
+  signature_ok       boolean NOT NULL DEFAULT false,
+  payload            jsonb NOT NULL,
+  received_at        timestamptz NOT NULL DEFAULT now(),
+  handled_at         timestamptz,
+  UNIQUE (provider, provider_event_id)
+);
+
+
+-- ────────────
+-- 5) TRIGGERS 
+-- ────────────
+CREATE TRIGGER organizations_u BEFORE UPDATE ON organizations
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER users_u BEFORE UPDATE ON users
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER venues_u BEFORE UPDATE ON venues
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER events_u BEFORE UPDATE ON events
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER ticket_types_u BEFORE UPDATE ON ticket_types
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER orders_u BEFORE UPDATE ON orders
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER payments_u BEFORE UPDATE ON payments
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER attendees_u BEFORE UPDATE ON attendees
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER devices_u BEFORE UPDATE ON devices
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER notifications_u BEFORE UPDATE ON notifications
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+
+-- ───────────
+-- 6) INDEXES 
+-- ───────────
+
+-- Venues
+CREATE INDEX IF NOT EXISTS venues_city_state_idx ON venues (lower(city), state_code);
+CREATE INDEX IF NOT EXISTS venues_zip_idx        ON venues (postal_code);
+CREATE INDEX IF NOT EXISTS venues_org_idx        ON venues (org_id);
+
+-- Events: FTS & faceting
+CREATE INDEX IF NOT EXISTS events_search_gin ON events USING gin (search_vector);
+CREATE INDEX IF NOT EXISTS events_tags_gin   ON events USING gin (tags);
+
+-- Events: common filters
+CREATE INDEX IF NOT EXISTS events_time_idx      ON events(start_at, end_at);
+CREATE INDEX IF NOT EXISTS events_venue_idx     ON events(venue_id);
+CREATE INDEX IF NOT EXISTS events_org_time_idx  ON events(org_id, start_at DESC);
+
+-- Ticket types
+CREATE INDEX IF NOT EXISTS ticket_types_event_idx ON ticket_types(event_id);
+CREATE INDEX IF NOT EXISTS ticket_types_kind_idx  ON ticket_types(kind);
+
+-- Enforce unique ticket type name within an event (case-insensitive)
+CREATE UNIQUE INDEX IF NOT EXISTS ticket_types_unique_name_per_event_ci
+  ON ticket_types (event_id, lower(name));
+
+-- Orders
+CREATE INDEX IF NOT EXISTS orders_event_status_idx     ON orders(event_id, status);
+CREATE INDEX IF NOT EXISTS orders_purchaser_email_idx  ON orders(purchaser_email);
+CREATE INDEX IF NOT EXISTS orders_customer_zip_idx     ON orders(customer_postal_code);
+
+-- Order items
+CREATE INDEX IF NOT EXISTS order_items_order_idx ON order_items(order_id);
+
+-- Payments
+CREATE INDEX IF NOT EXISTS payments_order_idx  ON payments(order_id);
+CREATE INDEX IF NOT EXISTS payments_status_idx ON payments(status);
+CREATE UNIQUE INDEX IF NOT EXISTS payments_provider_ref_uniq
+  ON payments(provider, provider_payment_id)
+  WHERE provider_payment_id IS NOT NULL;
+
+-- Stripe Checkout session lookup
+CREATE INDEX IF NOT EXISTS payments_session_idx ON payments(provider_session_id);
+
+-- Attendees
+CREATE INDEX IF NOT EXISTS attendees_email_idx ON attendees(email);
+
+-- Tickets
+CREATE INDEX IF NOT EXISTS tickets_event_idx    ON tickets(event_id);
+CREATE INDEX IF NOT EXISTS tickets_attendee_idx ON tickets(attendee_id);
+CREATE INDEX IF NOT EXISTS tickets_type_idx     ON tickets(ticket_type_id);
+
+-- Check-ins
+CREATE UNIQUE INDEX IF NOT EXISTS checkins_one_per_ticket_idx ON check_ins(ticket_id);
+
+-- Inventory reservations
+CREATE INDEX IF NOT EXISTS inv_res_by_ttype_idx ON inventory_reservations(ticket_type_id);
+CREATE INDEX IF NOT EXISTS inv_res_expires_idx  ON inventory_reservations(expires_at);
+CREATE INDEX IF NOT EXISTS inv_res_active_idx
+  ON inventory_reservations(ticket_type_id, expires_at) WHERE expires_at > now();
+
+-- Outbox
+CREATE INDEX IF NOT EXISTS outbox_topic_created_idx
+  ON outbox_events(topic, created_at DESC);
+
+-- Webhook events
+CREATE INDEX IF NOT EXISTS webhook_events_unhandled_idx
+  ON webhook_events(provider, handled_at) WHERE handled_at IS NULL;
+
+COMMIT;
