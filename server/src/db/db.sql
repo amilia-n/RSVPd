@@ -88,7 +88,6 @@ BEGIN
   END IF;
 END$$;
 
-
 -- ──────────────────────
 -- 3) HELPER FUNCTIONS
 -- ──────────────────────
@@ -141,6 +140,15 @@ CREATE TABLE IF NOT EXISTS user_roles (
   role_name  text REFERENCES roles(name) ON DELETE RESTRICT,
   granted_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, role_name)
+);
+
+-- Org-scoped membership (multi-tenant organizer/admin)
+CREATE TABLE IF NOT EXISTS org_members (
+  org_id    uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  user_id   uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role_name text NOT NULL, 
+  granted_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (org_id, user_id, role_name)
 );
 
 -- Venues (US addressing, IANA TZ)
@@ -197,6 +205,41 @@ CREATE TABLE IF NOT EXISTS events (
   UNIQUE (org_id, slug)
 );
 
+-- Speakers / performers
+CREATE TABLE IF NOT EXISTS speakers (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id       uuid REFERENCES organizations(id) ON DELETE CASCADE,
+  full_name    text NOT NULL,
+  title        text,
+  company      text,
+  bio_md       text,
+  headshot_url text,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now()
+);
+
+-- Sessions / schedule
+CREATE TABLE IF NOT EXISTS sessions (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id       uuid NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  title          text NOT NULL,
+  description_md text,
+  track          text,
+  room           text,
+  starts_at      timestamptz NOT NULL,
+  ends_at        timestamptz NOT NULL,
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  updated_at     timestamptz NOT NULL DEFAULT now(),
+  CHECK (starts_at < ends_at)
+);
+
+CREATE TABLE IF NOT EXISTS session_speakers (
+  session_id uuid NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  speaker_id uuid NOT NULL REFERENCES speakers(id) ON DELETE CASCADE,
+  role       text,
+  PRIMARY KEY (session_id, speaker_id)
+);
+
 -- Ticket catalog (per-event)
 CREATE TABLE IF NOT EXISTS ticket_types (
   id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -250,6 +293,7 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE TABLE IF NOT EXISTS order_items (
   id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id         uuid NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  event_id         uuid NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   ticket_type_id   uuid NOT NULL REFERENCES ticket_types(id) ON DELETE RESTRICT,
   quantity         integer NOT NULL CHECK (quantity > 0),
   unit_price_cents integer NOT NULL CHECK (unit_price_cents >= 0),
@@ -273,6 +317,8 @@ CREATE TABLE IF NOT EXISTS payments (
   checkout_mode       text,           -- 'payment' | 'setup' | 'subscription'
   checkout_status     text,           -- 'open' | 'complete' | 'expired'
   payment_intent_id   text,           -- pi_...
+  latest_charge_id    text,
+  receipt_url         text,
   received_at         timestamptz,
   created_at          timestamptz NOT NULL DEFAULT now(),
   updated_at          timestamptz NOT NULL DEFAULT now(),
@@ -305,10 +351,6 @@ CREATE TABLE IF NOT EXISTS tickets (
   status         ticket_status NOT NULL DEFAULT 'ACTIVE',
   issued_at      timestamptz NOT NULL DEFAULT now(),
   cancelled_at   timestamptz,
-  CONSTRAINT tickets_order_item_belongs_to_order
-    FOREIGN KEY (order_item_id, order_id)
-    REFERENCES order_items (id, order_id)
-    ON DELETE CASCADE
 );
 
 -- Check-ins (one per ticket at event level)
@@ -331,15 +373,83 @@ CREATE TABLE IF NOT EXISTS inventory_reservations (
   created_at     timestamptz NOT NULL DEFAULT now()
 );
 
--- Outbox 
-CREATE TABLE IF NOT EXISTS outbox_events (
-  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  topic         text NOT NULL,                 -- e.g., 'order.paid','event.updated'
-  aggregate     text NOT NULL,                 -- 'order','event','ticket'
-  aggregate_id  uuid,
-  payload       jsonb NOT NULL,
-  created_at    timestamptz NOT NULL DEFAULT now(),
-  published_at  timestamptz
+-- Waitlist
+CREATE TABLE IF NOT EXISTS waitlist_entries (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id        uuid NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  ticket_type_id  uuid REFERENCES ticket_types(id) ON DELETE CASCADE,
+  user_id         uuid REFERENCES users(id) ON DELETE SET NULL,
+  email           citext,
+  full_name       text,
+  status          text NOT NULL DEFAULT 'PENDING', -- PENDING|NOTIFIED|CONVERTED|CANCELLED
+  priority        integer NOT NULL DEFAULT 0,
+  notes           text,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  updated_at      timestamptz NOT NULL DEFAULT now(),
+  CHECK (user_id IS NOT NULL OR email IS NOT NULL)
+);
+
+-- Waitlist
+CREATE TABLE IF NOT EXISTS waitlist_entries (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id        uuid NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  ticket_type_id  uuid REFERENCES ticket_types(id) ON DELETE CASCADE,
+  user_id         uuid REFERENCES users(id) ON DELETE SET NULL,
+  email           citext,
+  full_name       text,
+  status          text NOT NULL DEFAULT 'PENDING', -- PENDING|NOTIFIED|CONVERTED|CANCELLED
+  priority        integer NOT NULL DEFAULT 0,
+  notes           text,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  updated_at      timestamptz NOT NULL DEFAULT now(),
+  CHECK (user_id IS NOT NULL OR email IS NOT NULL)
+);
+
+-- Promo codes & applied promos
+CREATE TABLE IF NOT EXISTS promo_codes (
+  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id           uuid REFERENCES organizations(id) ON DELETE CASCADE,
+  event_id         uuid REFERENCES events(id) ON DELETE CASCADE,
+  code             text NOT NULL,
+  percent_off      integer,
+  amount_off_cents integer,
+  currency         char(3) DEFAULT 'USD',
+  max_redemptions  integer,
+  per_user_limit   integer,
+  starts_at        timestamptz,
+  ends_at          timestamptz,
+  is_active        boolean NOT NULL DEFAULT true,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  updated_at       timestamptz NOT NULL DEFAULT now(),
+  CHECK (percent_off IS NULL OR (percent_off BETWEEN 0 AND 100)),
+  CHECK (amount_off_cents IS NULL OR amount_off_cents >= 0)
+);
+
+CREATE TABLE IF NOT EXISTS order_promos (
+  order_id   uuid NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  promo_id   uuid NOT NULL REFERENCES promo_codes(id) ON DELETE RESTRICT,
+  applied_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (order_id, promo_id)
+);
+
+-- Notifications (+ MagicBell id)
+CREATE TABLE IF NOT EXISTS notifications (
+  id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id                uuid REFERENCES organizations(id) ON DELETE CASCADE,
+  event_id              uuid REFERENCES events(id) ON DELETE CASCADE,
+  title                 text NOT NULL,
+  body_md               text,
+  channel               notification_channel NOT NULL,
+  status                notification_status NOT NULL DEFAULT 'QUEUED',
+  target_user_id        uuid REFERENCES users(id) ON DELETE SET NULL,
+  target_attendee_email citext,
+  published_by          uuid REFERENCES users(id) ON DELETE SET NULL,
+  scheduled_at          timestamptz,
+  sent_at               timestamptz,
+  error_message         text,
+  magicbell_notification_id text UNIQUE,
+  created_at            timestamptz NOT NULL DEFAULT now(),
+  updated_at            timestamptz NOT NULL DEFAULT now()
 );
 
 -- Devices (push tokens)
@@ -361,35 +471,15 @@ CREATE TABLE IF NOT EXISTS devices (
   UNIQUE (device_type, push_token)
 );
 
--- Notification preferences 
+-- User notification prefs
 CREATE TABLE IF NOT EXISTS user_notification_prefs (
   user_id          uuid PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   email_enabled    boolean NOT NULL DEFAULT true,
   push_enabled     boolean NOT NULL DEFAULT true,
   sms_enabled      boolean NOT NULL DEFAULT false,
   in_app_enabled   boolean NOT NULL DEFAULT true,
-  quiet_hours_json jsonb NOT NULL DEFAULT '{}'::jsonb,  -- e.g. {"start":"21:00","end":"07:00","tz":"America/New_York"}
+  quiet_hours_json jsonb NOT NULL DEFAULT '{}'::jsonb,
   locale           text
-);
-
--- Notifications (+ MagicBell returned id)
-CREATE TABLE IF NOT EXISTS notifications (
-  id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  org_id                uuid REFERENCES organizations(id) ON DELETE CASCADE,
-  event_id              uuid REFERENCES events(id) ON DELETE CASCADE,
-  title                 text NOT NULL,
-  body_md               text,
-  channel               notification_channel NOT NULL,
-  status                notification_status NOT NULL DEFAULT 'QUEUED',
-  target_user_id        uuid REFERENCES users(id) ON DELETE SET NULL,
-  target_attendee_email citext,
-  published_by          uuid REFERENCES users(id) ON DELETE SET NULL,
-  scheduled_at          timestamptz,
-  sent_at               timestamptz,
-  error_message         text,
-  magicbell_notification_id text UNIQUE,
-  created_at            timestamptz NOT NULL DEFAULT now(),
-  updated_at            timestamptz NOT NULL DEFAULT now()
 );
 
 -- Idempotency keys
@@ -418,40 +508,57 @@ CREATE TABLE IF NOT EXISTS webhook_events (
   UNIQUE (provider, provider_event_id)
 );
 
+-- Outbox 
+CREATE TABLE IF NOT EXISTS outbox_events (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  topic         text NOT NULL,                 -- e.g., 'order.paid','event.updated'
+  aggregate     text NOT NULL,                 -- 'order','event','ticket'
+  aggregate_id  uuid,
+  payload       jsonb NOT NULL,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  published_at  timestamptz
+);
+
+-- Feedback / surveys
+CREATE TABLE IF NOT EXISTS event_feedback (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id    uuid NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  ticket_id   uuid REFERENCES tickets(id) ON DELETE SET NULL,
+  user_id     uuid REFERENCES users(id) ON DELETE SET NULL,
+  rating      integer CHECK (rating BETWEEN 1 AND 5),
+  comments_md text,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+-- Audit log (optional but useful)
+CREATE TABLE IF NOT EXISTS activity_log (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  actor_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+  action        text NOT NULL,
+  entity_type   text NOT NULL,
+  entity_id     uuid,
+  meta          jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at    timestamptz NOT NULL DEFAULT now()
+);
+
 
 -- ────────────
 -- 5) TRIGGERS 
 -- ────────────
-CREATE TRIGGER organizations_u BEFORE UPDATE ON organizations
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-CREATE TRIGGER users_u BEFORE UPDATE ON users
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-CREATE TRIGGER venues_u BEFORE UPDATE ON venues
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-CREATE TRIGGER events_u BEFORE UPDATE ON events
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-CREATE TRIGGER ticket_types_u BEFORE UPDATE ON ticket_types
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-CREATE TRIGGER orders_u BEFORE UPDATE ON orders
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-CREATE TRIGGER payments_u BEFORE UPDATE ON payments
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-CREATE TRIGGER attendees_u BEFORE UPDATE ON attendees
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-CREATE TRIGGER devices_u BEFORE UPDATE ON devices
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-CREATE TRIGGER notifications_u BEFORE UPDATE ON notifications
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
+CREATE TRIGGER organizations_u BEFORE UPDATE ON organizations FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER users_u          BEFORE UPDATE ON users          FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER venues_u         BEFORE UPDATE ON venues         FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER events_u         BEFORE UPDATE ON events         FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER speakers_u       BEFORE UPDATE ON speakers       FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER sessions_u       BEFORE UPDATE ON sessions       FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER ticket_types_u   BEFORE UPDATE ON ticket_types   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER orders_u         BEFORE UPDATE ON orders         FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER payments_u       BEFORE UPDATE ON payments       FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER attendees_u      BEFORE UPDATE ON attendees      FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER devices_u        BEFORE UPDATE ON devices        FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER notifications_u  BEFORE UPDATE ON notifications  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER waitlist_entries_u BEFORE UPDATE ON waitlist_entries FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER promo_codes_u    BEFORE UPDATE ON promo_codes    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- ───────────
 -- 6) INDEXES 
@@ -462,20 +569,19 @@ CREATE INDEX IF NOT EXISTS venues_city_state_idx ON venues (lower(city), state_c
 CREATE INDEX IF NOT EXISTS venues_zip_idx        ON venues (postal_code);
 CREATE INDEX IF NOT EXISTS venues_org_idx        ON venues (org_id);
 
--- Events: FTS & faceting
+-- Events
 CREATE INDEX IF NOT EXISTS events_search_gin ON events USING gin (search_vector);
 CREATE INDEX IF NOT EXISTS events_tags_gin   ON events USING gin (tags);
-
--- Events: common filters
 CREATE INDEX IF NOT EXISTS events_time_idx      ON events(start_at, end_at);
 CREATE INDEX IF NOT EXISTS events_venue_idx     ON events(venue_id);
 CREATE INDEX IF NOT EXISTS events_org_time_idx  ON events(org_id, start_at DESC);
 
+-- Sessions
+CREATE INDEX IF NOT EXISTS sessions_event_time_idx ON sessions(event_id, starts_at);
+
 -- Ticket types
 CREATE INDEX IF NOT EXISTS ticket_types_event_idx ON ticket_types(event_id);
 CREATE INDEX IF NOT EXISTS ticket_types_kind_idx  ON ticket_types(kind);
-
--- Enforce unique ticket type name within an event (case-insensitive)
 CREATE UNIQUE INDEX IF NOT EXISTS ticket_types_unique_name_per_event_ci
   ON ticket_types (event_id, lower(name));
 
@@ -483,19 +589,19 @@ CREATE UNIQUE INDEX IF NOT EXISTS ticket_types_unique_name_per_event_ci
 CREATE INDEX IF NOT EXISTS orders_event_status_idx     ON orders(event_id, status);
 CREATE INDEX IF NOT EXISTS orders_purchaser_email_idx  ON orders(purchaser_email);
 CREATE INDEX IF NOT EXISTS orders_customer_zip_idx     ON orders(customer_postal_code);
+CREATE INDEX IF NOT EXISTS orders_expires_idx          ON orders(expires_at);
 
 -- Order items
 CREATE INDEX IF NOT EXISTS order_items_order_idx ON order_items(order_id);
 
 -- Payments
-CREATE INDEX IF NOT EXISTS payments_order_idx  ON payments(order_id);
-CREATE INDEX IF NOT EXISTS payments_status_idx ON payments(status);
+CREATE INDEX IF NOT EXISTS payments_order_idx   ON payments(order_id);
+CREATE INDEX IF NOT EXISTS payments_status_idx  ON payments(status);
+CREATE INDEX IF NOT EXISTS payments_session_idx ON payments(provider_session_id);
+CREATE INDEX IF NOT EXISTS payments_intent_idx  ON payments(payment_intent_id);
 CREATE UNIQUE INDEX IF NOT EXISTS payments_provider_ref_uniq
   ON payments(provider, provider_payment_id)
   WHERE provider_payment_id IS NOT NULL;
-
--- Stripe Checkout session lookup
-CREATE INDEX IF NOT EXISTS payments_session_idx ON payments(provider_session_id);
 
 -- Attendees
 CREATE INDEX IF NOT EXISTS attendees_email_idx ON attendees(email);
@@ -514,12 +620,96 @@ CREATE INDEX IF NOT EXISTS inv_res_expires_idx  ON inventory_reservations(expire
 CREATE INDEX IF NOT EXISTS inv_res_active_idx
   ON inventory_reservations(ticket_type_id, expires_at) WHERE expires_at > now();
 
+-- Waitlist
+CREATE INDEX IF NOT EXISTS waitlist_event_ticket_idx
+  ON waitlist_entries(event_id, ticket_type_id, status, priority DESC, created_at ASC);
+
+-- Promo codes
+CREATE UNIQUE INDEX IF NOT EXISTS promo_code_unique_per_event
+  ON promo_codes (event_id, lower(code));
+
 -- Outbox
-CREATE INDEX IF NOT EXISTS outbox_topic_created_idx
-  ON outbox_events(topic, created_at DESC);
+CREATE INDEX IF NOT EXISTS outbox_topic_created_idx ON outbox_events(topic, created_at DESC);
 
 -- Webhook events
 CREATE INDEX IF NOT EXISTS webhook_events_unhandled_idx
   ON webhook_events(provider, handled_at) WHERE handled_at IS NULL;
+
+-- Activity log
+CREATE INDEX IF NOT EXISTS activity_entity_idx
+  ON activity_log (entity_type, entity_id, created_at DESC);
+
+-- ─────────────────────
+-- 7) CROSS CONTRAINTS 
+-- ─────────────────────
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'ticket_types_id_event_unique'
+  ) THEN
+    ALTER TABLE ticket_types
+      ADD CONSTRAINT ticket_types_id_event_unique UNIQUE (id, event_id);
+  END IF;
+END $$;
+
+-- B) Orders composite (id,event_id) for joining
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'orders_id_event_unique'
+  ) THEN
+    ALTER TABLE orders
+      ADD CONSTRAINT orders_id_event_unique UNIQUE (id, event_id);
+  END IF;
+END $$;
+
+-- C) Tickets: ticket_type must belong to same event
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'tickets_ticket_type_matches_event'
+  ) THEN
+    ALTER TABLE tickets
+      ADD CONSTRAINT tickets_ticket_type_matches_event
+      FOREIGN KEY (ticket_type_id, event_id)
+      REFERENCES ticket_types (id, event_id)
+      ON DELETE RESTRICT;
+  END IF;
+END $$;
+
+-- D) Order items must match ticket_type's event and order's event
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'order_items_ticket_type_matches_event'
+  ) THEN
+    ALTER TABLE order_items
+      ADD CONSTRAINT order_items_ticket_type_matches_event
+      FOREIGN KEY (ticket_type_id, event_id)
+      REFERENCES ticket_types (id, event_id)
+      ON DELETE RESTRICT;
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'order_items_order_matches_event'
+  ) THEN
+    ALTER TABLE order_items
+      ADD CONSTRAINT order_items_order_matches_event
+      FOREIGN KEY (order_id, event_id)
+      REFERENCES orders (id, event_id)
+      ON DELETE CASCADE;
+  END IF;
+END $$;
+
+-- E) Tickets: order_item belongs to the same order
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'tickets_order_item_belongs_to_order'
+  ) THEN
+    ALTER TABLE tickets
+      ADD CONSTRAINT tickets_order_item_belongs_to_order
+      FOREIGN KEY (order_item_id, order_id)
+      REFERENCES order_items (id, order_id)
+      ON DELETE CASCADE;
+  END IF;
+END $$;
 
 COMMIT;
