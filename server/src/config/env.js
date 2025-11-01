@@ -10,14 +10,21 @@ export const config = {
   NODE_ENV: process.env.NODE_ENV ?? 'development',
   PORT: Number(process.env.PORT ?? 7777),
   CORS_ORIGIN: process.env.CORS_ORIGIN || "http://localhost:5173",
+
   JWT_SECRET: required("JWT_SECRET"),
   JWT_EXPIRES: process.env.JWT_EXPIRES ?? "7d",
+
   DATABASE_URL: process.env.DATABASE_URL,
+
   STRIPE_SECRET: process.env.STRIPE_SECRET,
   STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+  APP_BASE_URL: process.env.APP_BASE_URL ?? 'http://localhost:5173',
+  
   MAGICBELL_API_KEY: process.env.MAGICBELL_API_KEY,
   MAGICBELL_API_SECRET: process.env.MAGICBELL_API_SECRET,
-  MAGICBELL_PROJECT_ID: process.env.MAGICBELL_PROJECT_ID || null,
+
+  QR_HMAC_SECRET: process.env.QR_HMAC_SECRET ?? 'dev-qr-secret',
+  
   DB_USER: process.env.DB_USER,
   DB_PASSWORD: process.env.DB_PASSWORD,
   DB_HOST: process.env.DB_HOST,

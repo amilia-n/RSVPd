@@ -146,7 +146,7 @@ CREATE TABLE IF NOT EXISTS user_roles (
 CREATE TABLE IF NOT EXISTS org_members (
   org_id    uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   user_id   uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  role_name text NOT NULL, 
+  role_name text REFERENCES roles(name) ON DELETE RESTRICT,
   granted_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (org_id, user_id, role_name)
 );
@@ -350,7 +350,8 @@ CREATE TABLE IF NOT EXISTS tickets (
   qr_token       text UNIQUE NOT NULL DEFAULT encode(gen_random_bytes(16),'hex'),
   status         ticket_status NOT NULL DEFAULT 'ACTIVE',
   issued_at      timestamptz NOT NULL DEFAULT now(),
-  cancelled_at   timestamptz,
+  updated_at     timestamptz NOT NULL DEFAULT now(),
+  cancelled_at   timestamptz
 );
 
 -- Check-ins (one per ticket at event level)
@@ -371,22 +372,6 @@ CREATE TABLE IF NOT EXISTS inventory_reservations (
   quantity       integer NOT NULL CHECK (quantity > 0),
   expires_at     timestamptz NOT NULL,
   created_at     timestamptz NOT NULL DEFAULT now()
-);
-
--- Waitlist
-CREATE TABLE IF NOT EXISTS waitlist_entries (
-  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  event_id        uuid NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-  ticket_type_id  uuid REFERENCES ticket_types(id) ON DELETE CASCADE,
-  user_id         uuid REFERENCES users(id) ON DELETE SET NULL,
-  email           citext,
-  full_name       text,
-  status          text NOT NULL DEFAULT 'PENDING', -- PENDING|NOTIFIED|CONVERTED|CANCELLED
-  priority        integer NOT NULL DEFAULT 0,
-  notes           text,
-  created_at      timestamptz NOT NULL DEFAULT now(),
-  updated_at      timestamptz NOT NULL DEFAULT now(),
-  CHECK (user_id IS NOT NULL OR email IS NOT NULL)
 );
 
 -- Waitlist
@@ -530,7 +515,7 @@ CREATE TABLE IF NOT EXISTS event_feedback (
   created_at  timestamptz NOT NULL DEFAULT now()
 );
 
--- Audit log (optional but useful)
+-- Audit log 
 CREATE TABLE IF NOT EXISTS activity_log (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   actor_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
@@ -555,6 +540,7 @@ CREATE TRIGGER ticket_types_u   BEFORE UPDATE ON ticket_types   FOR EACH ROW EXE
 CREATE TRIGGER orders_u         BEFORE UPDATE ON orders         FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER payments_u       BEFORE UPDATE ON payments       FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER attendees_u      BEFORE UPDATE ON attendees      FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER tickets_u         BEFORE UPDATE ON tickets        FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER devices_u        BEFORE UPDATE ON devices        FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER notifications_u  BEFORE UPDATE ON notifications  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER waitlist_entries_u BEFORE UPDATE ON waitlist_entries FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -605,6 +591,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS payments_provider_ref_uniq
 
 -- Attendees
 CREATE INDEX IF NOT EXISTS attendees_email_idx ON attendees(email);
+CREATE UNIQUE INDEX IF NOT EXISTS attendees_email_unique_ci ON attendees (lower(email));
+CREATE INDEX IF NOT EXISTS attendees_user_idx  ON attendees(user_id);
 
 -- Tickets
 CREATE INDEX IF NOT EXISTS tickets_event_idx    ON tickets(event_id);
@@ -613,12 +601,14 @@ CREATE INDEX IF NOT EXISTS tickets_type_idx     ON tickets(ticket_type_id);
 
 -- Check-ins
 CREATE UNIQUE INDEX IF NOT EXISTS checkins_one_per_ticket_idx ON check_ins(ticket_id);
+CREATE INDEX IF NOT EXISTS checkins_scanned_by_idx ON check_ins(scanned_by_user_id, created_at DESC);
 
 -- Inventory reservations
 CREATE INDEX IF NOT EXISTS inv_res_by_ttype_idx ON inventory_reservations(ticket_type_id);
 CREATE INDEX IF NOT EXISTS inv_res_expires_idx  ON inventory_reservations(expires_at);
 CREATE INDEX IF NOT EXISTS inv_res_active_idx
   ON inventory_reservations(ticket_type_id, expires_at) WHERE expires_at > now();
+CREATE INDEX IF NOT EXISTS inv_res_by_order_idx ON inventory_reservations(order_id);
 
 -- Waitlist
 CREATE INDEX IF NOT EXISTS waitlist_event_ticket_idx
@@ -627,6 +617,12 @@ CREATE INDEX IF NOT EXISTS waitlist_event_ticket_idx
 -- Promo codes
 CREATE UNIQUE INDEX IF NOT EXISTS promo_code_unique_per_event
   ON promo_codes (event_id, lower(code));
+CREATE INDEX IF NOT EXISTS order_promos_order_idx ON order_promos(order_id);
+CREATE INDEX IF NOT EXISTS order_promos_promo_idx ON order_promos(promo_id);
+
+-- Notifications
+CREATE INDEX IF NOT EXISTS notifications_queue_idx
+  ON notifications (status, scheduled_at) WHERE status = 'QUEUED';
 
 -- Outbox
 CREATE INDEX IF NOT EXISTS outbox_topic_created_idx ON outbox_events(topic, created_at DESC);
