@@ -1,4 +1,4 @@
-import { verifyJwt } from "../utils/tokens.js";
+import { verifyJwt } from "../utils/token.js";
 import { query } from "../db/pool.js";
 
 const NORM = (r) => (typeof r === "string" ? r.toUpperCase() : r);

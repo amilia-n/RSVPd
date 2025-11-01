@@ -22,6 +22,13 @@ import notificationsRoutes from './src/routes/notifications.routes.js';
 
 
 const app = express();
+
+app.post(
+  "/api/payments/webhook",
+  express.raw({ type: "application/json" }),
+  paymentsRoutes
+);
+
 // const dist = path.join(process.cwd(), '..', 'client', 'dist');
 app.enable('trust proxy');
 app.use(cors({ origin: config.CORS_ORIGIN, credentials: true }));
