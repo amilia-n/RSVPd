@@ -46,7 +46,7 @@ export function requireOrgRole(...allowed) {
       if (!orgId) return res.status(400).json({ error: { message: "Missing orgId" } });
 
       const { rows } = await query(
-        `SELECT role_name FROM organization_members WHERE org_id=$1 AND user_id=$2`,
+        `SELECT role_name FROM org_members WHERE org_id=$1 AND user_id=$2`,
         [orgId, req.user.id]
       );
       const userOrgRoles = new Set(rows.map((r) => NORM(r.role_name)));

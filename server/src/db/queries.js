@@ -1,4 +1,4 @@
-export const SQL = {
+export const queries = {
 
   // ═══════════════════════════════════════════════════════════════
   // USERS & AUTH
