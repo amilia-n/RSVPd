@@ -12,3 +12,4 @@ export const notFound = (res, message = "Not Found") =>
   res.status(404).json({ error: { message } });
 export const serverError = (res, message = "Internal Server Error") =>
   res.status(500).json({ error: { message } });
+
