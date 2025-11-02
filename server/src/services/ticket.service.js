@@ -1,42 +1,70 @@
 import pool from "../db/pool.js";
 import { queries } from "../db/queries.js";
 
-export const insertAttendee = async (payload) =>
-  (await pool.query(queries.insertAttendee, [payload.user_id ?? null, payload.full_name, payload.email, payload.phone ?? null])).rows[0];
+export async function issueTicket({ event_id, order_id, order_item_id, ticket_type_id, attendee_id, short_code = null }) {
+  const { rows } = await pool.query(queries.issueTicket, [
+    event_id, order_id, order_item_id, ticket_type_id, attendee_id, short_code,
+  ]);
+  return rows[0] || null;
+}
 
-export const findOrCreateAttendee = async (user_id, full_name, email, phone) =>
-  (await pool.query(queries.findOrCreateAttendee, [user_id ?? null, full_name, email, phone ?? null])).rows[0];
+export async function getTicketById(id) {
+  const { rows } = await pool.query(queries.getTicketById, [id]);
+  return rows[0] || null;
+}
 
-export const updateAttendee = async (id, patch) =>
-  (await pool.query(queries.updateAttendee, [id, patch.full_name, patch.email, patch.phone ?? null])).rows[0];
+export async function getTicketWithDetails(id) {
+  const { rows } = await pool.query(queries.getTicketWithDetails, [id]);
+  return rows[0] || null;
+}
 
-export const getAttendeeById = async (id) => (await pool.query(queries.getAttendeeById, [id])).rows[0] || null;
-export const getAttendeeByEmail = async (email) => (await pool.query(queries.getAttendeeByEmail, [email])).rows[0] || null;
+export async function findTicketByQr(qr_token) {
+  const { rows } = await pool.query(queries.findTicketByQr, [qr_token]);
+  return rows[0] || null;
+}
 
-export const listAttendeesForUser = async (userId) => (await pool.query(queries.listAttendeesForUser, [userId])).rows;
-export const listAttendeesForEvent = async (eventId) => (await pool.query(queries.listAttendeesForEvent, [eventId])).rows;
+export async function findTicketByShortCode(short_code) {
+  const { rows } = await pool.query(queries.findTicketByShortCode, [short_code]);
+  return rows[0] || null;
+}
 
-export const issueTicket = async (payload) =>
-  (await pool.query(queries.issueTicket, [
-    payload.event_id, payload.order_id, payload.order_item_id, payload.ticket_type_id, payload.attendee_id, payload.short_code ?? null,
-  ])).rows[0];
+export async function listTicketsForOrder(order_id) {
+  const { rows } = await pool.query(queries.listTicketsForOrder, [order_id]);
+  return rows;
+}
 
-export const getTicketById = async (id) => (await pool.query(queries.getTicketById, [id])).rows[0] || null;
-export const getTicketWithDetails = async (id) => (await pool.query(queries.getTicketWithDetails, [id])).rows[0] || null;
+export async function listTicketsForUser(user_id) {
+  const { rows } = await pool.query(queries.listTicketsForUser, [user_id]);
+  return rows;
+}
 
-export const findTicketByQr = async (qr_token) => (await pool.query(queries.findTicketByQr, [qr_token])).rows[0] || null;
-export const findTicketByShortCode = async (code) => (await pool.query(queries.findTicketByShortCode, [code])).rows[0] || null;
+export async function listTicketsForEvent(event_id) {
+  const { rows } = await pool.query(queries.listTicketsForEvent, [event_id]);
+  return rows;
+}
 
-export const listTicketsForOrder = async (orderId) => (await pool.query(queries.listTicketsForOrder, [orderId])).rows;
-export const listTicketsForUser = async (userId) => (await pool.query(queries.listTicketsForUser, [userId])).rows;
-export const listTicketsForEvent = async (eventId) => (await pool.query(queries.listTicketsForEvent, [eventId])).rows;
-export const listTicketsForAttendee = async (attendeeId) => (await pool.query(queries.listTicketsForAttendee, [attendeeId])).rows;
-export const listTicketsForTicketType = async (ticketTypeId) => (await pool.query(queries.listTicketsForTicketType, [ticketTypeId])).rows;
+export async function listTicketsForAttendee(attendee_id) {
+  const { rows } = await pool.query(queries.listTicketsForAttendee, [attendee_id]);
+  return rows;
+}
 
-export const updateTicketStatus = async (id, status) =>
-  (await pool.query(queries.updateTicketStatus, [id, status])).rows[0];
+export async function listTicketsForTicketType(ticket_type_id) {
+  const { rows } = await pool.query(queries.listTicketsForTicketType, [ticket_type_id]);
+  return rows;
+}
 
-export const cancelTicket = async (id) => (await pool.query(queries.cancelTicket, [id])).rows[0];
+export async function updateTicketStatus(id, status) {
+  const { rows } = await pool.query(queries.updateTicketStatus, [id, status]);
+  return rows[0] || null;
+}
 
-export const getTicketForScanLock = async (qr_token) =>
-  (await pool.query(queries.getTicketForScanLock, [qr_token])).rows[0] || null;
+export async function cancelTicket(id) {
+  const { rows } = await pool.query(queries.cancelTicket, [id]);
+  return rows[0] || null;
+}
+
+// Lock to avoid double check-in race
+export async function lockForScan(qr_token) {
+  const { rows } = await pool.query(queries.getTicketForScanLock, [qr_token]);
+  return rows[0] || null;
+}
