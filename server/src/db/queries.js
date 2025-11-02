@@ -128,7 +128,10 @@ export const queries = {
     FROM events e
     JOIN organizations o ON o.id = e.org_id
     WHERE visibility='PUBLIC' AND status IN ('PUBLISHED','COMPLETED')
-      AND ( $1 = '' OR e.search_vector @@ plainto_tsquery('english', $1) )
+      AND (
+        COALESCE($1,'') = '' 
+        OR e.search_vector @@ websearch_to_tsquery('english', $1)
+      )
     ORDER BY start_at DESC
     LIMIT $2 OFFSET $3`,
 
@@ -208,17 +211,21 @@ export const queries = {
   createTicketType: `
     INSERT INTO ticket_types (
       event_id, name, description_md, kind, price_cents, currency, quantity_total,
-      per_user_limit, sales_start_at, sales_end_at, is_active
+      per_user_limit, per_order_limit, sales_start_at, sales_end_at, is_active
     )
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
     RETURNING *`,
 
   updateTicketType: `
     UPDATE ticket_types
     SET name=$2, description_md=$3, kind=$4, price_cents=$5, currency=$6, quantity_total=$7,
-        per_user_limit=$8, sales_start_at=$9, sales_end_at=$10, is_active=$11, updated_at=now()
+        per_user_limit=$8, per_order_limit=$9, sales_start_at=$10, sales_end_at=$11, is_active=$12, updated_at=now()
     WHERE id=$1
     RETURNING *`,
+  currentOrderQtyForType: `
+    SELECT COALESCE(SUM(quantity),0)::int AS qty
+    FROM order_items
+    WHERE order_id=$1 AND ticket_type_id=$2`,
 
   getTicketTypeById:        `SELECT * FROM ticket_types WHERE id=$1`,
   listTicketTypesForEvent:  `SELECT * FROM ticket_types WHERE event_id=$1 AND is_active=true ORDER BY price_cents`,
@@ -248,6 +255,10 @@ export const queries = {
   // Lock before computing availability to avoid races
   lockTicketType: `SELECT * FROM ticket_types WHERE id=$1 FOR UPDATE`,
 
+  currentOrderQtyForType: `
+    SELECT COALESCE(SUM(quantity),0)::int AS qty
+    FROM order_items
+    WHERE order_id=$1 AND ticket_type_id=$2`,
 
   // ═══════════════════════════════════════════════════════════════
   // ORDERS & ITEMS
@@ -336,20 +347,13 @@ export const queries = {
 
   deleteOrderItem: `DELETE FROM order_items WHERE id=$1 AND order_id=$2 RETURNING id`,
 
-
-  // ═══════════════════════════════════════════════════════════════
-  // PER-USER LIMITS (by user_id or email)
-  // ═══════════════════════════════════════════════════════════════
   countUserTicketsForType: `
     SELECT COUNT(*)::int AS qty
     FROM tickets t
     JOIN orders o ON o.id = t.order_id
     WHERE t.ticket_type_id = $1
       AND t.status = 'ACTIVE'
-      AND (
-        ($2::uuid  IS NOT NULL AND o.purchaser_user_id = $2) OR
-        ($3::citext IS NOT NULL AND o.purchaser_email   = $3)
-      )`,
+      AND ($2::uuid IS NOT NULL AND o.purchaser_user_id = $2)`,
 
   countUserActiveReservationsForType: `
     SELECT COALESCE(SUM(ir.quantity),0)::int AS qty
@@ -357,10 +361,7 @@ export const queries = {
     JOIN orders o ON o.id = ir.order_id
     WHERE ir.ticket_type_id = $1
       AND ir.expires_at > now()
-      AND (
-        ($2::uuid  IS NOT NULL AND o.purchaser_user_id = $2) OR
-        ($3::citext IS NOT NULL AND o.purchaser_email   = $3)
-      )`,
+      AND ($2::uuid IS NOT NULL AND o.purchaser_user_id = $2)`,
 
 
   // ═══════════════════════════════════════════════════════════════
@@ -628,7 +629,6 @@ export const queries = {
     JOIN promo_codes pc ON pc.id = op.promo_id
     WHERE op.order_id = $1`,
 
-
   // ═══════════════════════════════════════════════════════════════
   // NOTIFICATIONS & DEVICES
   // ═══════════════════════════════════════════════════════════════
@@ -685,7 +685,7 @@ export const queries = {
       fail_count=0,
       disabled_at=NULL,
       updated_at=now()
-    RETURNING *`,
+    RETURNING *`, 
 
   listDevicesForUser: `
     SELECT * FROM devices

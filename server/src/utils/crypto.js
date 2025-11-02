@@ -1,12 +1,9 @@
-import crypto from 'node:crypto';
-import { config } from '../config/env.js';
-
-export function hmacSha256Hex(input) {
-  const h = crypto.createHmac('sha256', config.QR_HMAC_SECRET);
-  h.update(input);
-  return h.digest('hex');
-}
+import crypto from "crypto";
 
 export function randomHex(bytes = 16) {
-  return crypto.randomBytes(bytes).toString('hex');
+  return crypto.randomBytes(bytes).toString("hex");
+}
+
+export function hmacSha256(secret, data) {
+  return crypto.createHmac("sha256", secret).update(data).digest("hex");
 }

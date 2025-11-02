@@ -1,7 +1,6 @@
 import pool from "../db/pool.js";
 import { queries } from "../db/queries.js";
 
-// Users
 export const getById = async (id) => {
   const { rows } = await pool.query(queries.userById, [id]);
   return rows[0] ?? null;
@@ -65,7 +64,6 @@ export const rolesForUser = async (userId) => {
   return rows.map((r) => r.role_name);
 };
 
-// Organizations
 export const createOrg = async ({ name, slug }) => {
   const { rows } = await pool.query(queries.createOrg, [name, slug]);
   return rows[0];
@@ -95,7 +93,6 @@ export const listOrgs = async (q, limit = 25, offset = 0) => {
   return rows;
 };
 
-// Org Membership
 export const upsertOrgMember = async (org_id, user_id, role_name) => {
   const { rows } = await pool.query(queries.upsertOrgMember, [
     org_id,
