@@ -27,6 +27,8 @@ export const config = {
   MAGICBELL_API_KEY: process.env.MAGICBELL_API_KEY,
   MAGICBELL_API_SECRET: process.env.MAGICBELL_API_SECRET,
 
+  COOKIE_NAME: process.env.COOKIE_NAME ?? 'access',
+
   DB_USER: process.env.DB_USER,
   DB_PASSWORD: process.env.DB_PASSWORD,
   DB_HOST: process.env.DB_HOST,

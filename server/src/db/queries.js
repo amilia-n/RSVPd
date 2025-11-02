@@ -7,13 +7,13 @@ export const queries = {
   userById:    `SELECT * FROM users WHERE id = $1`,
 
   insertUser: `
-    INSERT INTO users (email, password_hash, first_name, last_name, phone, timezone, magicbell_external_id, stripe_customer_id)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    INSERT INTO users (email, password_hash, first_name, last_name, phone, magicbell_external_id, stripe_customer_id)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
     RETURNING *`,
 
   updateUser: `
     UPDATE users
-    SET email=$2, first_name=$3, last_name=$4, phone=$5, timezone=$6, magicbell_external_id=$7, stripe_customer_id=$8, updated_at=now()
+    SET email=$2, first_name=$3, last_name=$4, phone=$5, magicbell_external_id=$6, stripe_customer_id=$7, updated_at=now()
     WHERE id=$1
     RETURNING *`,
 
@@ -72,13 +72,13 @@ export const queries = {
   // VENUES
   // ═══════════════════════════════════════════════════════════════
   createVenue: `
-    INSERT INTO venues (org_id, name, address1, address2, city, state_code, postal_code, country_code, timezone, capacity)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    INSERT INTO venues (org_id, name, address1, address2, city, state_code, postal_code, country_code, capacity)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     RETURNING *`,
 
   updateVenue: `
     UPDATE venues
-    SET name=$2, address1=$3, address2=$4, city=$5, state_code=$6, postal_code=$7, country_code=$8, timezone=$9, capacity=$10, updated_at=now()
+    SET name=$2, address1=$3, address2=$4, city=$5, state_code=$6, postal_code=$7, country_code=$8, capacity=$9, updated_at=now()
     WHERE id=$1
     RETURNING *`,
 
@@ -93,17 +93,17 @@ export const queries = {
   createEvent: `
     INSERT INTO events (
       org_id, venue_id, title, slug, summary, description_md, status, visibility, event_type,
-      capacity, timezone, start_at, end_at, sales_start_at, sales_end_at,
+      capacity, start_at, end_at, sales_start_at, sales_end_at,
       is_online, stream_url, cover_image_url, tags
     )
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
     RETURNING *`,
 
   updateEvent: `
     UPDATE events SET
       venue_id=$2, title=$3, slug=$4, summary=$5, description_md=$6, status=$7, visibility=$8, event_type=$9,
-      capacity=$10, timezone=$11, start_at=$12, end_at=$13, sales_start_at=$14, sales_end_at=$15,
-      is_online=$16, stream_url=$17, cover_image_url=$18, tags=$19, updated_at=now()
+      capacity=$10, start_at=$11, end_at=$12, sales_start_at=$13, sales_end_at=$14,
+      is_online=$15, stream_url=$16, cover_image_url=$17, tags=$18, updated_at=now()
     WHERE id=$1
     RETURNING *`,
 
@@ -255,11 +255,6 @@ export const queries = {
   // Lock before computing availability to avoid races
   lockTicketType: `SELECT * FROM ticket_types WHERE id=$1 FOR UPDATE`,
 
-  currentOrderQtyForType: `
-    SELECT COALESCE(SUM(quantity),0)::int AS qty
-    FROM order_items
-    WHERE order_id=$1 AND ticket_type_id=$2`,
-
   // ═══════════════════════════════════════════════════════════════
   // ORDERS & ITEMS
   // ═══════════════════════════════════════════════════════════════
@@ -403,7 +398,6 @@ export const queries = {
     VALUES ($1,$2,$3,$4)
     RETURNING *`,
 
-  // Requires UNIQUE INDEX attendees(lower(email))
   findOrCreateAttendee: `
     WITH ins AS (
       INSERT INTO attendees (user_id, full_name, email, phone)

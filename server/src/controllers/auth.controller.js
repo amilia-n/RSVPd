@@ -12,12 +12,12 @@ const COOKIE_OPTS = {
 
 export async function register(req, res) {
   try {
-    const { email, password, first_name, last_name, phone, timezone } = req.body ?? {};
+    const { email, password, first_name, last_name, phone } = req.body ?? {};
     if (!email || !password || !first_name || !last_name) {
       return res.status(400).json({ error: { message: "Missing required fields" } });
     }
     const { user, token } = await AuthService.register({
-      email, password, first_name, last_name, phone, timezone,
+      email, password, first_name, last_name, phone,
     });
     res.cookie(config.COOKIE_NAME, token, COOKIE_OPTS);
     return res.status(201).json({ user });

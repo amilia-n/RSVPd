@@ -22,7 +22,6 @@ export async function updateUser(id, patch) {
     first_name,
     last_name,
     phone = null,
-    timezone = "America/New_York",
     magicbell_external_id = null,
     stripe_customer_id = null,
   } = patch;
@@ -32,7 +31,6 @@ export async function updateUser(id, patch) {
     first_name,
     last_name,
     phone,
-    timezone,
     magicbell_external_id,
     stripe_customer_id,
   ]);

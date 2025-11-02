@@ -19,18 +19,19 @@ import ticketsRoutes from './src/routes/tickets.routes.js';
 import checkinsRoutes from './src/routes/checkins.routes.js';
 import notificationsRoutes from './src/routes/notifications.routes.js';
 
+import * as paymentsController from "./src/controllers/payments.controller.js";
 
 
 const app = express();
+app.enable('trust proxy');
 
 app.post(
   "/api/payments/webhook",
   express.raw({ type: "application/json" }),
-  paymentsRoutes
+  (req, res, next) => paymentsController.webhook(req, res, next)
 );
 
 // const dist = path.join(process.cwd(), '..', 'client', 'dist');
-app.enable('trust proxy');
 app.use(cors({ origin: config.CORS_ORIGIN, credentials: true }));
 app.use(morgan('dev'));
 app.use(express.json());
@@ -49,7 +50,7 @@ app.use('/api/orders', ordersRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/tickets', ticketsRoutes);
 app.use('/api/checkins', checkinsRoutes);
-app.use('/api/notification', notificationsRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 // app.use(express.static(dist));
 

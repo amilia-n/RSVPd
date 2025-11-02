@@ -3,10 +3,10 @@ import { queries } from "../db/queries.js";
 import { hashPassword, verifyPassword } from "../utils/password.js";
 import { signJwt } from "../utils/token.js";
 
-export async function register({ email, password, first_name, last_name, phone, timezone }) {
+export async function register({ email, password, first_name, last_name, phone }) {
   const password_hash = await hashPassword(password);
   const { rows } = await pool.query(queries.insertUser, [
-    email, password_hash, first_name, last_name, phone ?? null, timezone ?? "America/New_York", null, null,
+    email, password_hash, first_name, last_name, phone ?? null, null, null,
   ]);
   const user = rows[0];
   return { user, token: signJwt({ id: user.id, role: null }) };

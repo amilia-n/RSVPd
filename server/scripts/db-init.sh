@@ -31,7 +31,7 @@ if [[ -n "${DATABASE_URL:-}" ]]; then
   PSQL_CREATE_DB_CONN=$(echo "$DATABASE_URL" | sed "s|/$DB_NAME_TO_CREATE|/postgres|")
   PSQL_CONN=("$DATABASE_URL")
 else
-  DB_NAME_TO_CREATE="${DB_NAME:-kanvas}"
+  DB_NAME_TO_CREATE="${DB_NAME:-rsvpd}"
   export PGPASSWORD="${DB_PASSWORD:-}"
   PSQL_CREATE_DB_CONN=(-h "${DB_HOST:-localhost}" -p "${DB_PORT:-5432}" -U "${DB_USER:-postgres}" -d "postgres")
   PSQL_CONN=(-h "${DB_HOST:-localhost}" -p "${DB_PORT:-5432}" -U "${DB_USER:-postgres}" -d "${DB_NAME_TO_CREATE}")

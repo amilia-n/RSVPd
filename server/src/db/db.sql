@@ -78,14 +78,6 @@ BEGIN
     );
   END IF;
 
-  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname='tz_us4') THEN
-    CREATE TYPE tz_us4 AS ENUM (
-      'America/New_York',     -- ET
-      'America/Chicago',      -- CT
-      'America/Denver',       -- MT
-      'America/Los_Angeles'   -- PT
-    );
-  END IF;
 END$$;
 
 -- ──────────────────────
@@ -98,6 +90,16 @@ BEGIN
   RETURN NEW;
 END$$;
 
+CREATE OR REPLACE FUNCTION set_event_search_vector()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.search_vector :=
+    setweight(to_tsvector('simple',  coalesce(NEW.title,'')), 'A') ||
+    setweight(to_tsvector('english', coalesce(NEW.summary,'')), 'B') ||
+    setweight(to_tsvector('english', coalesce(NEW.description_md,'')), 'C') ||
+    setweight(to_tsvector('simple',  array_to_string(NEW.tags,' ')), 'B');
+  RETURN NEW;
+END$$;
 
 -- ────────────────────
 -- 4) CORE TABLES
@@ -120,7 +122,6 @@ CREATE TABLE IF NOT EXISTS users (
   last_name     text   NOT NULL,
   first_name    text   NOT NULL,
   phone         text,
-  timezone      tz_us4 NOT NULL DEFAULT 'America/New_York',
   is_verified   boolean NOT NULL DEFAULT false,
   magicbell_external_id text UNIQUE,
   stripe_customer_id    text,
@@ -160,7 +161,6 @@ CREATE TABLE IF NOT EXISTS venues (
   state_code   us_state NOT NULL,                
   postal_code  text NOT NULL,                    
   country_code char(2) NOT NULL DEFAULT 'US',    
-  timezone     tz_us4 NOT NULL DEFAULT 'America/New_York',
   capacity     integer CHECK (capacity IS NULL OR capacity >= 0),
   created_at   timestamptz NOT NULL DEFAULT now(),
   updated_at   timestamptz NOT NULL DEFAULT now(),
@@ -181,7 +181,6 @@ CREATE TABLE IF NOT EXISTS events (
   visibility     visibility   NOT NULL DEFAULT 'PUBLIC',
   event_type     event_type   NOT NULL DEFAULT 'LIVE',
   capacity       integer CHECK (capacity IS NULL OR capacity >= 0),
-  timezone       tz_us4 NOT NULL DEFAULT 'America/New_York',
   start_at       timestamptz NOT NULL,
   end_at         timestamptz NOT NULL,
   sales_start_at timestamptz,
@@ -190,12 +189,7 @@ CREATE TABLE IF NOT EXISTS events (
   stream_url     text,
   cover_image_url text,
   tags           text[] NOT NULL DEFAULT '{}',
-  search_vector  tsvector GENERATED ALWAYS AS (
-    setweight(to_tsvector('simple',  coalesce(title,'')), 'A') ||
-    setweight(to_tsvector('english', coalesce(summary,'')), 'B') ||
-    setweight(to_tsvector('english', coalesce(description_md,'')), 'C') ||
-    setweight(to_tsvector('simple',  array_to_string(tags,' ')), 'B')
-  ) STORED,
+  search_vector  tsvector,
   created_at     timestamptz NOT NULL DEFAULT now(),
   updated_at     timestamptz NOT NULL DEFAULT now(),
   CHECK (start_at < end_at),
@@ -542,6 +536,7 @@ CREATE TRIGGER devices_u        BEFORE UPDATE ON devices        FOR EACH ROW EXE
 CREATE TRIGGER notifications_u  BEFORE UPDATE ON notifications  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER waitlist_entries_u BEFORE UPDATE ON waitlist_entries FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER promo_codes_u    BEFORE UPDATE ON promo_codes    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER events_search_vector BEFORE INSERT OR UPDATE OF title, summary, description_md, tags ON events FOR EACH ROW EXECUTE FUNCTION set_event_search_vector();
 
 -- ───────────
 -- 6) INDEXES 
@@ -605,8 +600,7 @@ CREATE INDEX IF NOT EXISTS checkins_event_idx ON check_ins(event_id, created_at 
 -- Inventory reservations
 CREATE INDEX IF NOT EXISTS inv_res_by_ttype_idx ON inventory_reservations(ticket_type_id);
 CREATE INDEX IF NOT EXISTS inv_res_expires_idx  ON inventory_reservations(expires_at);
-CREATE INDEX IF NOT EXISTS inv_res_active_idx
-  ON inventory_reservations(ticket_type_id, expires_at) WHERE expires_at > now();
+CREATE INDEX IF NOT EXISTS inv_res_active_idx ON inventory_reservations(ticket_type_id, expires_at);
 CREATE INDEX IF NOT EXISTS inv_res_by_order_idx ON inventory_reservations(order_id);
 
 -- Waitlist

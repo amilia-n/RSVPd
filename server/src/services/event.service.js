@@ -5,13 +5,13 @@ export async function createEvent(payload) {
   const {
     org_id, venue_id = null, title, slug, summary = null, description_md = null,
     status = "DRAFT", visibility = "PUBLIC", event_type = "LIVE", capacity = null,
-    timezone = "America/New_York", start_at, end_at, sales_start_at = null, sales_end_at = null,
+    start_at, end_at, sales_start_at = null, sales_end_at = null,
     is_online = false, stream_url = null, cover_image_url = null, tags = [],
   } = payload;
 
   const { rows } = await pool.query(queries.createEvent, [
     org_id, venue_id, title, slug, summary, description_md, status, visibility, event_type,
-    capacity, timezone, start_at, end_at, sales_start_at, sales_end_at,
+    capacity, start_at, end_at, sales_start_at, sales_end_at,
     is_online, stream_url, cover_image_url, tags,
   ]);
   return rows[0] || null;
@@ -20,14 +20,14 @@ export async function createEvent(payload) {
 export async function updateEvent(id, patch) {
   const {
     venue_id = null, title, slug, summary = null, description_md = null, status,
-    visibility, event_type, capacity = null, timezone = "America/New_York",
+    visibility, event_type, capacity = null,
     start_at, end_at, sales_start_at = null, sales_end_at = null,
     is_online = false, stream_url = null, cover_image_url = null, tags = [],
   } = patch;
 
   const { rows } = await pool.query(queries.updateEvent, [
     id, venue_id, title, slug, summary, description_md, status, visibility, event_type,
-    capacity, timezone, start_at, end_at, sales_start_at, sales_end_at,
+    capacity, start_at, end_at, sales_start_at, sales_end_at,
     is_online, stream_url, cover_image_url, tags,
   ]);
   return rows[0] || null;
