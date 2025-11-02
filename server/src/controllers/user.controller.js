@@ -1,65 +1,71 @@
-import * as UserService from "../services/user.service.js";
-
-export async function listUsers(req, res) {
-  const q = req.query?.q ?? null;
-  const limit = Number(req.query?.limit ?? 20);
-  const offset = Number(req.query?.offset ?? 0);
-  const data = await UserService.list({ q, limit, offset });
-  return res.json(data);
-}
+import * as users from "../services/user.service.js";
 
 export async function getUser(req, res) {
-  const { id } = req.params;
-  const user = await UserService.getById(id);
-  if (!user) return res.status(404).json({ error: { message: "User not found" } });
-  return res.json(user);
-}
-
-export async function updateUser(req, res) {
-  const { id } = req.params;
-  const body = req.body ?? {};
-  const user = await UserService.update(id, body);
-  return res.json(user);
-}
-
-export async function grantGlobalRole(req, res) {
-  const { id } = req.params;
-  const { role } = req.body ?? {};
-  if (!role) return res.status(400).json({ error: { message: "role required" } });
-  const granted = await UserService.grantRole(id, role);
-  return res.status(201).json(granted);
-}
-
-export async function revokeGlobalRole(req, res) {
-  const { id } = req.params;
-  const { role } = req.body ?? {};
-  if (!role) return res.status(400).json({ error: { message: "role required" } });
-  await UserService.revokeRole(id, role);
-  return res.status(204).send();
-}
-
-export async function upsertOrgMember(req, res) {
-  const { orgId } = req.params;
-  const { user_id, role } = req.body ?? {};
-  if (!user_id || !role) {
-    return res.status(400).json({ error: { message: "user_id and role required" } });
+  try {
+    const user = await users.getById(req.params.id);
+    if (!user) return res.status(404).json({ error: { message: "Not found" } });
+    return res.json({ user });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: { message: "Internal Server Error" } });
   }
-  const m = await UserService.upsertOrgMember(orgId, user_id, role);
-  return res.status(201).json(m);
 }
 
-export async function removeOrgMember(req, res) {
-  const { orgId } = req.params;
-  const { user_id, role } = req.body ?? {};
-  if (!user_id || !role) {
-    return res.status(400).json({ error: { message: "user_id and role required" } });
+export async function list(req, res) {
+  try {
+    const { q, limit, offset } = req.query;
+    const rows = await users.listUsers(q ?? null, Number(limit) || 25, Number(offset) || 0);
+    return res.json({ rows });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: { message: "Internal Server Error" } });
   }
-  await UserService.removeOrgMember(orgId, user_id, role);
-  return res.status(204).send();
 }
 
-export async function listOrgMembers(req, res) {
-  const { orgId } = req.params;
-  const members = await UserService.listOrgMembers(orgId);
-  return res.json(members);
+export async function update(req, res) {
+  try {
+    const u = await users.updateUser(req.params.id, req.body ?? {});
+    return res.json({ user: u });
+  } catch (e) {
+    console.error(e);
+    if (e.code === "23505") {
+      return res.status(409).json({ error: { message: "Email already in use" } });
+    }
+    return res.status(500).json({ error: { message: "Internal Server Error" } });
+  }
+}
+
+export async function verify(req, res) {
+  try {
+    const u = await users.verifyUser(req.params.id);
+    return res.json({ user: u });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: { message: "Internal Server Error" } });
+  }
+}
+
+// Roles
+export async function grantRole(req, res) {
+  try {
+    const { role } = req.body ?? {};
+    if (!role) return res.status(400).json({ error: { message: "Missing role" } });
+    const r = await users.grantGlobalRole(req.params.id, role);
+    return res.status(201).json({ role: r });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: { message: "Internal Server Error" } });
+  }
+}
+
+export async function revokeRole(req, res) {
+  try {
+    const { role } = req.body ?? {};
+    if (!role) return res.status(400).json({ error: { message: "Missing role" } });
+    await users.revokeGlobalRole(req.params.id, role);
+    return res.status(204).send();
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: { message: "Internal Server Error" } });
+  }
 }
