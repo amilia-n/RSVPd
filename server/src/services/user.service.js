@@ -44,6 +44,11 @@ export async function verifyUser(id) {
   return rows[0] || null;
 }
 
+export async function rolesForUser(user_id) {
+  const { rows } = await pool.query(queries.rolesForUser, [user_id]);
+  return rows.map(r => r.role_name);
+}
+
 export async function grantGlobalRole(user_id, role_name) {
   const { rows } = await pool.query(queries.grantGlobalRole, [user_id, role_name]);
   return rows[0] || null;
@@ -54,9 +59,34 @@ export async function revokeGlobalRole(user_id, role_name) {
   return { ok: true };
 }
 
-export async function rolesForUser(user_id) {
-  const { rows } = await pool.query(queries.rolesForUser, [user_id]);
-  return rows.map(r => r.role_name);
+export async function createOrg({ name, slug }) {
+  const { rows } = await pool.query(queries.createOrg, [name, slug]);
+  return rows[0] || null;
+}
+
+export async function updateOrg(id, { name, slug }) {
+  const { rows } = await pool.query(queries.updateOrg, [id, name, slug]);
+  return rows[0] || null;
+}
+
+export async function getOrg(id) {
+  const { rows } = await pool.query(queries.orgById, [id]);
+  return rows[0] || null;
+}
+
+export async function getOrgBySlug(slug) {
+  const { rows } = await pool.query(queries.orgBySlug, [slug]);
+  return rows[0] || null;
+}
+
+export async function listOrgs(q = null, limit = 25, offset = 0) {
+  const { rows } = await pool.query(queries.listOrgs, [q, limit, offset]);
+  return rows;
+}
+
+export async function listOrgMembers(org_id) {
+  const { rows } = await pool.query(queries.listOrgMembers, [org_id]);
+  return rows;
 }
 
 export async function upsertOrgMember(org_id, user_id, role_name) {
@@ -67,14 +97,4 @@ export async function upsertOrgMember(org_id, user_id, role_name) {
 export async function removeOrgMember(org_id, user_id, role_name) {
   await pool.query(queries.removeOrgMember, [org_id, user_id, role_name]);
   return { ok: true };
-}
-
-export async function orgRolesForUser(user_id, org_id) {
-  const { rows } = await pool.query(queries.orgRolesForUser, [user_id, org_id]);
-  return rows.map(r => r.role_name);
-}
-
-export async function listOrgMembers(org_id) {
-  const { rows } = await pool.query(queries.listOrgMembers, [org_id]);
-  return rows;
 }
