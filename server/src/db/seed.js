@@ -183,16 +183,22 @@ async function createPaidOrderOneItem(c, { event, buyerUserId, buyerEmail, ticke
   );
 
   const paidAt = new Date(createdAt.getTime() + 5 * 60 * 1000);
+  const orderIdStr = String(insOrder.id);
   await q(
     c,
     `INSERT INTO payments (order_id, provider, provider_payment_id, status, amount_cents, currency, method,
                            provider_session_id, checkout_mode, checkout_status, payment_intent_id, latest_charge_id, receipt_url,
                            received_at, created_at)
-     VALUES ($1, 'STRIPE', 'seed_'||$1::text, 'SUCCEEDED', $2, 'USD', 'CARD',
-             'seed_session', 'payment', 'complete', 'seed_pi', 'seed_ch', 'https://example.com/receipt/'||$1::text,
-             $3, $3)
-     ON CONFLICT DO NOTHING`,
-    [insOrder.id, totals.total_cents, paidAt.toISOString()]
+     VALUES ($1, 'STRIPE', $2, 'SUCCEEDED', $3, 'USD', 'CARD',
+             'seed_session', 'payment', 'complete', 'seed_pi', 'seed_ch', $4,
+             $5, $5)`,
+    [
+      insOrder.id,
+      `seed_${orderIdStr}`,
+      totals.total_cents,
+      `https://example.com/receipt/${orderIdStr}`,
+      paidAt.toISOString()
+    ]
   );
 
   return { order: insOrder, item: insItem, issuedAt: new Date(paidAt.getTime() + 60 * 1000) };
