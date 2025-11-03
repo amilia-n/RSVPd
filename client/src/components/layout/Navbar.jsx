@@ -6,13 +6,26 @@ import { LogOut } from "lucide-react";
 import { PATHS } from "@/routes/paths";
 import { ROLES } from "@/constants/roles";
 import authApi from "@/features/auth/auth.api";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/utils/queryKeys";
 
 export default function Navbar() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, isLoading } = useMe();
+
+  // Fetch MagicBell HMAC for authenticated users
+  const { data: magicBellAuth } = useQuery({
+    queryKey: ['magicbell-hmac', user?.id],
+    queryFn: async () => {
+      const response = await authApi.getMagicBellHmac();
+      return response.data;
+    },
+    enabled: !!user, // Only fetch when user is logged in
+    staleTime: 1000 * 60 * 5,
+    retry: false, // Don't retry on failure
+    refetchOnWindowFocus: false,
+  });
 
   const handleLogout = async () => {
     try {
@@ -82,11 +95,15 @@ export default function Navbar() {
               <div className="h-8 w-20" />
             ) : user ? (
               <>
-                <MagicBell
-                  apiKey={import.meta.env.VITE_MAGICBELL_API_KEY}
-                  userEmail={user.email}
-                  locale="en"
-                />
+                {magicBellAuth && (
+                  <MagicBell
+                    apiKey={import.meta.env.VITE_MAGICBELL_API_KEY}
+                    userEmail={user.email}
+                    userExternalId={magicBellAuth.userExternalId}
+                    userHmac={magicBellAuth.userHmac}
+                    locale="en"
+                  />
+                )}
                 <Button variant="ghost" size="sm" onClick={handleLogout}>
                   <LogOut className="size-4 mr-2" />
                   Logout
