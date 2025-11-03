@@ -30,4 +30,9 @@ export const PATHS = {
   // analytics
   eventAnalytics: (eventId) => `/events/${eventId}/analytics`,
   orgAnalytics: (orgSlug) => `/orgs/${orgSlug}/analytics`,
+
+  speakers: (orgId) => `/orgs/${orgId}/speakers`,
+  sessions: (eventId) => `/events/${eventId}/sessions`,
+  
+  notifications: "/notifications",
 };
