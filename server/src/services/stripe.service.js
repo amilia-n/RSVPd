@@ -83,19 +83,19 @@ export async function createCheckoutSession(orderId) {
 
   // Create payment record (PENDING status) to track the checkout attempt
   const { rows: paymentRows } = await pool.query(queries.insertPayment, [
-    order.id,              // order_id
-    null,                  // provider_payment_id (will be set after payment)
-    'PENDING',             // status
-    order.total_cents,     // amount_cents
-    order.currency,         // currency
-    'CARD',                // method
-    null,                  // provider_session_id (will be set below)
-    'payment',             // checkout_mode
-    'open',                // checkout_status
-    null,                  // payment_intent_id
-    null,                  // latest_charge_id
-    null,                  // receipt_url
-    null,                  // received_at
+    order.id,              // order_id ($1)
+    null,                  // provider_payment_id ($2)
+    'PENDING',             // status ($3)
+    order.total_cents,     // amount_cents ($4)
+    order.currency,        // currency ($5)
+    // Note: 'CARD' method is hardcoded in the query
+    null,                  // provider_session_id ($6)
+    'payment',             // checkout_mode ($7)
+    'open',                // checkout_status ($8)
+    null,                  // payment_intent_id ($9)
+    null,                  // latest_charge_id ($10)
+    null,                  // receipt_url ($11)
+    null,                  // received_at ($12)
   ]);
   const payment = paymentRows[0];
 
