@@ -5,7 +5,7 @@ import ticketsApi from "./tickets.api";
 import { queryKeys } from "@/utils/queryKeys";
 
 export default function TicketQRCode({ ticketId }) {
-  const { data: qrDataURL, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.tickets.qr(ticketId),
     queryFn: () => ticketsApi.qrDataURL(ticketId),
     enabled: !!ticketId,
@@ -19,7 +19,7 @@ export default function TicketQRCode({ ticketId }) {
     );
   }
 
-  if (error || !qrDataURL) {
+  if (error || !data?.dataUrl) {
     return (
       <Alert variant="destructive">
         <AlertDescription>Failed to load QR code</AlertDescription>
@@ -30,7 +30,7 @@ export default function TicketQRCode({ ticketId }) {
   return (
     <div className="bg-white p-4 rounded-lg">
       <img
-        src={qrDataURL}
+        src={data.dataUrl}
         alt="Ticket QR Code"
         className="w-64 h-64 mx-auto"
       />
