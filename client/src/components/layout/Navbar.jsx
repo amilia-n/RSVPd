@@ -95,7 +95,7 @@ export default function Navbar() {
               <div className="h-8 w-20" />
             ) : user ? (
               <>
-                {magicBellAuth && (
+                {magicBellAuth && import.meta.env.VITE_MAGICBELL_API_KEY && (
                   <MagicBell
                     apiKey={import.meta.env.VITE_MAGICBELL_API_KEY}
                     userEmail={user.email}

@@ -1,11 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { Ticket, ShoppingBag, Bell, Calendar } from "lucide-react";
+import { Ticket, ShoppingBag, Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Spinner } from "@/components/ui/spinner";
-import { MagicBell } from "@magicbell/magicbell-react";
 import ticketsApi from "@/features/tickets/tickets.api";
 import ordersApi from "@/features/orders/orders.api";
 import { queryKeys } from "@/utils/queryKeys";
@@ -27,24 +26,11 @@ export default function AttendeeDashboardPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">My Dashboard</h1>
-          <p className="text-muted-foreground mt-2">
-            Manage your tickets and orders
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <MagicBell
-            apiKey={import.meta.env.VITE_MAGICBELL_API_KEY}
-            userEmail={null} // Will be set after auth
-            locale="en"
-            theme={{
-              icon: { borderColor: "transparent" },
-              unseenBadge: { backgroundColor: "red" },
-            }}
-          />
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold">My Dashboard</h1>
+        <p className="text-muted-foreground mt-2">
+          Manage your tickets and orders
+        </p>
       </div>
 
       {/* Stats */}
@@ -190,8 +176,8 @@ export default function AttendeeDashboardPage() {
                       {new Date(order.created_at).toLocaleDateString()}
                     </TableCell>
                     <TableCell>
-                      <Button variant="outline" size="sm">
-                        View
+                      <Button variant="outline" size="sm" asChild>
+                        <Link to={PATHS.orderDetail(order.id)}>View</Link>
                       </Button>
                     </TableCell>
                   </TableRow>

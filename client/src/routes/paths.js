@@ -19,6 +19,7 @@ export const PATHS = {
   eventDetail: (id) => `/events/${id}`,
   ticketTypes: (eventId) => `/events/${eventId}/ticket-types`,
   orders: "/orders",
+  orderDetail: (id) => `/orders/${id}`,
   checkout: "/checkout",
   checkoutSuccess: "/checkout/success",
 

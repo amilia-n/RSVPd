@@ -15,6 +15,7 @@ import EventsPage from "@/features/events/EventsPage";
 import EventDetailPage from "@/features/events/EventDetailPage";
 import CheckoutPage from "@/features/orders/CheckoutPage";
 import CheckoutSuccessPage from "@/features/orders/CheckoutSuccessPage";
+import OrderDetailPage from "@/features/orders/OrderDetailPage";
 import ScanPage from "@/features/checkins/ScanPage";
 import LiveCheckinsPage from "@/features/checkins/LiveCheckinsPage";
 import EventAnalyticsPage from "@/features/analytics/EventAnalyticsPage";
@@ -60,6 +61,7 @@ export default function App() {
           <Route path={PATHS.checkoutSuccess} element={<CheckoutSuccessPage />} />
           <Route path={PATHS.tickets} element={<MyTicketsPage />} />
           <Route path="/tickets/:id" element={<TicketDetailPage />} />
+          <Route path="/orders/:id" element={<OrderDetailPage />} />
         </Route>
       </Routes>
     </Shell>
