@@ -27,6 +27,7 @@ app.enable('trust proxy');
 
 // Client build directory for SPA
 const dist = path.join(process.cwd(), '..', 'client', 'dist');
+console.log('Looking for client build at:', dist);
 
 app.post(
   "/api/payments/webhook",
@@ -63,6 +64,9 @@ app.use(express.static(dist));
 
 // SPA catch-all route - serve index.html for all non-API GET requests (production only)
 if (config.NODE_ENV === 'production') {
+  console.log('SPA mode enabled - serving index.html for non-API routes');
+  console.log('Client dist path:', dist);
+
   app.use((req, res, next) => {
     // Skip API routes
     if (req.path.startsWith('/api/')) {
@@ -81,5 +85,11 @@ app.use(errorHandler);
 
 const port = Number(config.PORT) || 7777;
 app.listen(port, () => {
-  console.log(`Server listening on http://localhost:${port}`);
+  console.log('='.repeat(60));
+  console.log(`Server started successfully`);
+  console.log(`Environment: ${config.NODE_ENV}`);
+  console.log(`Port: ${port}`);
+  console.log(`Listening on: http://localhost:${port}`);
+  console.log(`CORS Origin: ${config.CORS_ORIGIN}`);
+  console.log('='.repeat(60));
 });
