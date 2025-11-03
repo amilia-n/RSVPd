@@ -9,7 +9,7 @@ export function useMe() {
       try {
         const response = await authApi.me();
         return response.user || response;
-      } catch (err) {
+      } catch {
         return null;
       }
     },

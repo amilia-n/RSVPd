@@ -1,6 +1,6 @@
-import { useParams, Link, useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Calendar, MapPin, DollarSign, ShoppingCart } from "lucide-react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Calendar, MapPin, ShoppingCart } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +20,6 @@ import { useMe } from "@/features/users/useMe";
 export default function EventDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const { user } = useMe();
   const [selectedTickets, setSelectedTickets] = useState({});
   const [cartTotal, setCartTotal] = useState(0);
@@ -38,15 +37,6 @@ export default function EventDetailPage() {
     queryFn: () => ticketTypesApi.listForEvent(id),
     enabled: !!id,
   });
-
-  // Fetch availability for each ticket type
-  const availabilityQueries = (ticketTypes?.rows || []).map((tt) =>
-    useQuery({
-      queryKey: queryKeys.ticketTypes.availability(tt.id),
-      queryFn: () => ticketTypesApi.availability(tt.id),
-      enabled: !!tt.id,
-    })
-  );
 
   // Create order mutation
   const createOrderMutation = useMutation({
@@ -76,7 +66,7 @@ export default function EventDetailPage() {
     }
 
     const items = Object.entries(selectedTickets)
-      .filter(([_, qty]) => qty > 0)
+      .filter(([, qty]) => qty > 0)
       .map(([ticketTypeId, quantity]) => ({
         ticket_type_id: ticketTypeId,
         quantity,
@@ -187,12 +177,8 @@ export default function EventDetailPage() {
                 </TableHeader>
                 <TableBody>
                   {ticketTypes.rows.map((ticketType) => {
-                    const availability =
-                      availabilityQueries.find((q) =>
-                        q.queryKey.includes(ticketType.id)
-                      )?.data;
-                    const available =
-                      availability?.available ?? ticketType.quantity_total ?? 0;
+                    // Use availability from ticketType if available, otherwise show quantity_total
+                    const available = ticketType.quantity_total ?? 0;
                     const selectedQty = selectedTickets[ticketType.id] || 0;
 
                     return (
