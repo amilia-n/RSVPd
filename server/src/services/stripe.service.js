@@ -105,7 +105,7 @@ export async function createCheckoutSession(orderId) {
     payment_method_types: ['card'],
     customer: customerId,
     line_items: lineItems,
-    success_url: `${config.CHECKOUT_SUCCESS_URL}?session_id={CHECKOUT_SESSION_ID}`,
+    success_url: `${config.CHECKOUT_SUCCESS_URL}?order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${config.CHECKOUT_CANCEL_URL}?order_id=${orderId}`,
     metadata: {
       order_id: orderId,
