@@ -1,0 +1,29 @@
+# syntax=docker/dockerfile:1
+# Dockerfile for running tests in an isolated environment
+ARG NODE_VERSION=20
+
+FROM node:${NODE_VERSION}-alpine
+WORKDIR /app
+
+# Install build dependencies for native modules (argon2)
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    libstdc++ \
+    libgcc
+
+# Copy package files
+COPY package*.json ./
+
+# Install ALL dependencies (including devDependencies for testing)
+RUN npm ci
+
+# Copy application code
+COPY . .
+
+# Set test environment
+ENV NODE_ENV=test
+
+# Default command runs tests
+CMD ["npm", "run", "test:run"]

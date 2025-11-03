@@ -16,6 +16,7 @@ A comprehensive Node.js backend API for the RSVP Event Management Platform. Buil
 - [Setup](#setup)
 - [Environment Variables](#environment-variables)
 - [Database Management](#database-management)
+- [Tests](#Tests)
 
 ## Overview
 
@@ -582,4 +583,48 @@ psql $DATABASE_URL -f src/db/seed.sql
 - HMAC-signed QR codes for tickets
 - Stripe webhook signature verification
 - CORS configuration
+
+## Tests
+Testing is setup using docker, this allows users to test the app with realistic data without requiring any setup other than having docker installed.
+
+### To run the API tests:
+
+**You must have Docker installed**
+```
+npm run test
+```
+
+This will kick off the following process:
+1) it will create a database image (wont need user to install postgres or set it up)
+2) it will seed the database using rich, realistic data
+3) it will install dependencies for the server
+4) it will run the server tests
+5) finally, after reporting details for the test, it will remove the docker container
+
+Example run:
+```
+ ✓ tests/auth.test.js > Authentication API > POST /api/auth/login > should fail with invalid password 35ms
+ ✓ tests/auth.test.js > Authentication API > POST /api/auth/login > should fail with non-existent user 3ms
+ ✓ tests/auth.test.js > Authentication API > POST /api/auth/login > should fail with missing email 2ms
+ ✓ tests/auth.test.js > Authentication API > POST /api/auth/login > should fail with missing password 2ms
+ ✓ tests/auth.test.js > Authentication API > POST /api/auth/register > should register a new user successfully 40ms
+ ✓ tests/auth.test.js > Authentication API > POST /api/auth/register > should fail to register with duplicate email 38ms
+stdout | tests/auth.test.js
+Test database connection closed
+
+ ✓ tests/auth.test.js > Authentication API > GET /api/auth/me > should return user profile when authenticated 39ms
+ ✓ tests/auth.test.js > Authentication API > GET /api/auth/me > should return 401 when not authenticated 2ms
+ ✓ tests/auth.test.js > Authentication API > POST /api/auth/logout > should logout successfully 34ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  19:05:06
+   Duration  1.08s (transform 371ms, setup 183ms, collect 370ms, tests 381ms, environment 0ms, prepare 3ms)
+
+
+==================================
+✅ All tests passed!
+==================================
+```
+
 

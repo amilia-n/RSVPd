@@ -12,7 +12,11 @@
     "db:reset": "bash scripts/db-reset.sh",
     "db:seed": "node src/db/seed.js",
     "db:init:node": "node src/db/init.js",
-    "db:reset:node": "node src/db/reset.js"
+    "db:reset:node": "node src/db/reset.js",
+    "test": "docker compose down -v && docker system prune -af --volumes && bash scripts/test.sh",
+    "test:run": "vitest run",
+    "test:watch": "vitest watch",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "argon2": "^0.44.0",
@@ -28,6 +32,8 @@
     "stripe": "^19.2.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.10"
+    "nodemon": "^3.1.10",
+    "supertest": "^7.1.4",
+    "vitest": "^4.0.6"
   }
 }
