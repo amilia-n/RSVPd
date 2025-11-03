@@ -1,5 +1,5 @@
-import "dotenv/config";  
-// import path from 'node:path';
+import "dotenv/config";
+import path from 'node:path';
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
@@ -25,6 +25,9 @@ import * as paymentsController from "./src/controllers/payments.controller.js";
 const app = express();
 app.enable('trust proxy');
 
+// Client build directory for SPA
+const dist = path.join(process.cwd(), '..', 'client', 'dist');
+
 app.post(
   "/api/payments/webhook",
   express.raw({ type: "application/json" }),
@@ -39,7 +42,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 
-app.get('/health', (_req, res) => res.json({ ok: true }));
+// Health check endpoint for Render
+app.get('/healthz', (_req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 
 app.use('/api/auth', authRoutes);
@@ -52,14 +58,23 @@ app.use('/api/tickets', ticketsRoutes);
 app.use('/api/checkins', checkinsRoutes);
 app.use('/api/notifications', notificationsRoutes);
 
-// app.use(express.static(dist));
+// Serve static files from client build
+app.use(express.static(dist));
 
-// app.get('/:path(*)', (req, res, next) => {
-//   if (req.path.startsWith('/api/')) {
-//     return next();
-//   }
-//   res.sendFile(path.join(dist, 'index.html'));
-// });
+// SPA catch-all route - serve index.html for all non-API GET requests (production only)
+if (config.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    // Skip API routes
+    if (req.path.startsWith('/api/')) {
+      return next();
+    }
+    // Only serve index.html for GET requests
+    if (req.method === 'GET') {
+      return res.sendFile(path.join(dist, 'index.html'));
+    }
+    next();
+  });
+}
 
 app.use(notFound);
 app.use(errorHandler);
