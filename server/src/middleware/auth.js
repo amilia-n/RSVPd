@@ -29,12 +29,12 @@ export async function requireAuth(req, res, next) {
     if (!token) return res.status(401).json({ error: { message: "Unauthorized" } });
 
     const payload = verifyJwt(token);
-    if (!payload?.id) return res.status(401).json({ error: { message: "Unauthorized" } });
+    if (!payload?.sub) return res.status(401).json({ error: { message: "Unauthorized" } });
 
-    const { rows } = await pool.query(queries.rolesForUser, [payload.id]);
+    const { rows } = await pool.query(queries.rolesForUser, [payload.sub]);
     const roles = rows.map((r) => NORM(r.role_name));
 
-    req.user = { id: payload.id, roles };
+    req.user = { id: payload.sub, roles };
     return next();
   } catch (e) {
     console.error(e);

@@ -6,6 +6,28 @@ export const queries = {
   userByEmail: `SELECT * FROM users WHERE email = $1`,
   userById:    `SELECT * FROM users WHERE id = $1`,
 
+  userByEmailWithRoles: `
+    SELECT u.*,
+           COALESCE(
+             (SELECT json_agg(ur.role_name)
+              FROM user_roles ur
+              WHERE ur.user_id = u.id),
+             '[]'::json
+           ) AS roles
+    FROM users u
+    WHERE u.email = $1`,
+
+  userByIdWithRoles: `
+    SELECT u.*,
+           COALESCE(
+             (SELECT json_agg(ur.role_name)
+              FROM user_roles ur
+              WHERE ur.user_id = u.id),
+             '[]'::json
+           ) AS roles
+    FROM users u
+    WHERE u.id = $1`,
+
   insertUser: `
     INSERT INTO users (email, password_hash, first_name, last_name, phone, magicbell_external_id, stripe_customer_id)
     VALUES ($1, $2, $3, $4, $5, $6, $7)
