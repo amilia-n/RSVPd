@@ -96,3 +96,8 @@ export async function removeOrgMember(org_id, user_id, role_name) {
   await pool.query(queries.removeOrgMember, [org_id, user_id, role_name]);
   return { ok: true };
 }
+
+export async function listOrgsForUser(userId) {
+  const { rows } = await pool.query(queries.listOrgsForUser, [userId]);
+  return rows;
+}

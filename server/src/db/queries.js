@@ -88,7 +88,12 @@ export const queries = {
     WHERE ($1::text IS NULL OR name ILIKE '%'||$1||'%' OR slug ILIKE '%'||$1||'%')
     ORDER BY created_at DESC
     LIMIT $2 OFFSET $3`,
-
+  listOrgsForUser: `
+    SELECT o.*, om.role_name, om.granted_at
+    FROM organizations o
+    JOIN org_members om ON om.org_id = o.id
+    WHERE om.user_id = $1
+    ORDER BY o.created_at DESC`,
 
   // ═══════════════════════════════════════════════════════════════
   // VENUES

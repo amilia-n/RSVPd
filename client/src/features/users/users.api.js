@@ -32,6 +32,9 @@ export const usersApi = {
   createOrg: (data) =>
     apiClient({ method: 'POST', url: API_ROUTES.users.createOrg, data }),
 
+  listMyOrgs: () =>
+    apiClient({ method: 'GET', url: API_ROUTES.users.listMyOrgs }),
+
   listOrgs: (params) =>
     apiClient({ method: 'GET', url: API_ROUTES.users.listOrgs, params }),
 

@@ -21,6 +21,7 @@ export const queryKeys = {
       detail: (id) => [...queryKeys.users.orgs.details(), id],
       bySlug: (slug) => [...queryKeys.users.orgs.all, 'slug', slug],
       members: (orgId) => ['orgs', orgId, 'members'],
+      my: () => [...queryKeys.users.orgs.all, 'my'],
     },
   },
 

@@ -19,6 +19,7 @@ r.delete("/:id/roles/:role", requireRole("ADMIN"), c.revokeRole);
 
 // orgs
 r.post("/orgs", requireRole("ADMIN", "ORGANIZER"), c.createOrg);
+r.get("/orgs/me", c.listMyOrgs);
 r.get("/orgs", c.listOrgs);
 r.get("/orgs/slug/:slug", c.getOrgBySlug);
 r.get("/orgs/:id", c.getOrg);

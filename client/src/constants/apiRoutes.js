@@ -21,6 +21,7 @@ export const API_ROUTES = {
     revokeRole: (id, role) => `/api/users/${id}/roles/${role}`,
     // Orgs
     createOrg: '/api/users/orgs',
+    listMyOrgs: '/api/users/orgs/me', 
     listOrgs: '/api/users/orgs',
     getOrgBySlug: (slug) => `/api/users/orgs/slug/${slug}`,
     getOrg: (id) => `/api/users/orgs/${id}`,
