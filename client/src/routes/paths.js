@@ -1,6 +1,7 @@
 export const PATHS = {
   home: "/",
   login: "/login",
+  register: "/register",
   logout: "/logout",
   profile: "/me",
 
@@ -33,6 +34,6 @@ export const PATHS = {
 
   speakers: (orgId) => `/orgs/${orgId}/speakers`,
   sessions: (eventId) => `/events/${eventId}/sessions`,
-  
+
   notifications: "/notifications",
 };
