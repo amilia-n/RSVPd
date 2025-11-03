@@ -2,7 +2,7 @@ import pool from "../db/pool.js";
 import { queries } from "../db/queries.js";
 
 export async function getById(id) {
-  const { rows } = await pool.query(queries.userById, [id]);
+  const { rows } = await pool.query(queries.userByIdWithRoles, [id]);
   return rows[0] || null;
 }
 
