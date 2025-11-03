@@ -16,6 +16,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import eventsApi from "@/features/events/events.api";
 import { queryKeys } from "@/utils/queryKeys";
 import { PATHS } from "@/routes/paths";
+import usersApi from "@/features/users/users.api";
 // import { formatCurrency } from "@/lib/utils";
 
 export default function OrganizerDashboardPage() {
