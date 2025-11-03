@@ -38,21 +38,44 @@ else
 fi
 
 # Create database if it doesn't exist
-echo "Ensuring database '${DB_NAME_TO_CREATE}' exists …"
 if [[ -n "${DATABASE_URL:-}" ]]; then
-  psql "$PSQL_CREATE_DB_CONN" -tc "SELECT 1 FROM pg_database WHERE datname = '${DB_NAME_TO_CREATE}'" | grep -q 1 || \
-    psql "$PSQL_CREATE_DB_CONN" -c "CREATE DATABASE ${DB_NAME_TO_CREATE};"
+  if ! psql "$PSQL_CREATE_DB_CONN" -tc "SELECT 1 FROM pg_database WHERE datname = '${DB_NAME_TO_CREATE}'" | grep -q 1; then
+    echo "Creating database '${DB_NAME_TO_CREATE}' ..."
+    psql "$PSQL_CREATE_DB_CONN" -c "CREATE DATABASE ${DB_NAME_TO_CREATE};" || {
+      echo "Error: Failed to create database '${DB_NAME_TO_CREATE}'"
+      exit 1
+    }
+    echo "Database '${DB_NAME_TO_CREATE}' created."
+  else
+    echo "Database '${DB_NAME_TO_CREATE}' already exists."
+  fi
 else
-  psql "${PSQL_CREATE_DB_CONN[@]}" -tc "SELECT 1 FROM pg_database WHERE datname = '${DB_NAME_TO_CREATE}'" | grep -q 1 || \
-    psql "${PSQL_CREATE_DB_CONN[@]}" -c "CREATE DATABASE ${DB_NAME_TO_CREATE};"
+  if ! psql "${PSQL_CREATE_DB_CONN[@]}" -tc "SELECT 1 FROM pg_database WHERE datname = '${DB_NAME_TO_CREATE}'" | grep -q 1; then
+    echo "Creating database '${DB_NAME_TO_CREATE}' ..."
+    psql "${PSQL_CREATE_DB_CONN[@]}" -c "CREATE DATABASE ${DB_NAME_TO_CREATE};" || {
+      echo "Error: Failed to create database '${DB_NAME_TO_CREATE}'"
+      exit 1
+    }
+    echo "Database '${DB_NAME_TO_CREATE}' created."
+  else
+    echo "Database '${DB_NAME_TO_CREATE}' already exists."
+  fi
 fi
 
 echo "Applying schema: src/db/db.sql …"
-psql -v ON_ERROR_STOP=1 "${PSQL_CONN[@]}" -f "src/db/db.sql"
+if [[ -n "${DATABASE_URL:-}" ]]; then
+  psql -v ON_ERROR_STOP=1 "$PSQL_CONN" -f "src/db/db.sql"
+else
+  psql -v ON_ERROR_STOP=1 "${PSQL_CONN[@]}" -f "src/db/db.sql"
+fi
 
 if [[ -f "src/db/seed.sql" ]]; then
   echo "Seeding base data via SQL: src/db/seed.sql …"
-  psql -v ON_ERROR_STOP=1 "${PSQL_CONN[@]}" -f "src/db/seed.sql"
+  if [[ -n "${DATABASE_URL:-}" ]]; then
+    psql -v ON_ERROR_STOP=1 "$PSQL_CONN" -f "src/db/seed.sql"
+  else
+    psql -v ON_ERROR_STOP=1 "${PSQL_CONN[@]}" -f "src/db/seed.sql"
+  fi
 fi
 
 if [[ -f "src/db/seed.js" ]] && command -v node >/dev/null 2>&1; then

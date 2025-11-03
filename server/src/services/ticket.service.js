@@ -1,5 +1,10 @@
 import pool from "../db/pool.js";
 import { queries } from "../db/queries.js";
+import * as attendeeService from './attendee.service.js';
+import { shortCodeFromId } from '../utils/qr.js';
+import * as orderService from './order.service.js';
+import * as userService from './user.service.js';
+
 
 export async function issueTicket({ event_id, order_id, order_item_id, ticket_type_id, attendee_id, short_code = null }) {
   const { rows } = await pool.query(queries.issueTicket, [
@@ -67,4 +72,64 @@ export async function cancelTicket(id) {
 export async function lockForScan(qr_token) {
   const { rows } = await pool.query(queries.getTicketForScanLock, [qr_token]);
   return rows[0] || null;
+}
+
+export async function issueTicketsForOrder(orderId) {
+  const order = await orderService.getOrderWithItems(orderId);
+  if (!order) {
+    throw new Error('Order not found');
+  }
+
+  if (order.status !== 'PAID') {
+    throw new Error(`Cannot issue tickets for order with status: ${order.status}`);
+  }
+
+  const existingTickets = await listTicketsForOrder(orderId);
+  if (existingTickets.length > 0) {
+    console.log(`Tickets already issued for order ${orderId}. Skipping issuance.`);
+    return existingTickets;
+  }
+
+  const purchaser = order.purchaser_user_id 
+    ? await userService.getById(order.purchaser_user_id)
+    : null;
+
+  const purchaserName = purchaser 
+    ? `${purchaser.first_name} ${purchaser.last_name}`
+    : order.purchaser_email.split('@')[0]; 
+
+    const purchaserAttendee = await attendeeService.findOrCreateAttendee(
+    order.purchaser_user_id,
+    purchaserName,
+    order.purchaser_email,
+    purchaser?.phone || null
+  );
+
+  if (!purchaserAttendee) {
+    throw new Error('Failed to create or find attendee');
+  }
+
+  const issuedTickets = [];
+  for (const item of order.items) {
+    // For each quantity in the order item, issue one ticket
+    for (let i = 0; i < item.quantity; i++) {
+      const ticketId = `${item.id}-${i}`;
+      const shortCode = shortCodeFromId(ticketId);
+
+      const ticket = await issueTicket({
+        event_id: order.event_id,
+        order_id: orderId,
+        order_item_id: item.id,
+        ticket_type_id: item.ticket_type_id,
+        attendee_id: purchaserAttendee.id,
+        short_code: shortCode,
+      });
+
+      if (ticket) {
+        issuedTickets.push(ticket);
+      }
+    }
+  }
+
+  return issuedTickets;
 }

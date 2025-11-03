@@ -47,3 +47,8 @@ export async function listPaymentsForOrder(order_id) {
   const { rows } = await pool.query(queries.listPaymentsForOrder, [order_id]);
   return rows;
 }
+
+export async function createCheckoutSessionForOrder(order_id) {
+  const stripeService = await import('./stripe.service.js');
+  return await stripeService.createCheckoutSession(order_id);
+}
