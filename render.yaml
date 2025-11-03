@@ -12,9 +12,9 @@ services:
           name: rsvp-db
           property: connectionString
       - key: CORS_ORIGIN
-        value: https://rsvp-app.onrender.com
+        value: https://rsvpd.onrender.com
       - key: APP_BASE_URL
-        value: https://rsvp-app.onrender.com
+        value: https://rsvpd.onrender.com
       - key: JWT_SECRET
         generateValue: true
         sync: false
@@ -25,9 +25,9 @@ services:
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
       - key: CHECKOUT_SUCCESS_URL
-        value: https://rsvp-app.onrender.com/checkout/success
+        value: https://rsvpd.onrender.com/checkout/success
       - key: CHECKOUT_CANCEL_URL
-        value: https://rsvp-app.onrender.com/checkout
+        value: https://rsvpd.onrender.com/checkout
       - key: MAGICBELL_API_KEY
         sync: false
       - key: MAGICBELL_API_SECRET
