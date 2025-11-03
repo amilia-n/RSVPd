@@ -36,11 +36,12 @@ export default function CheckoutPage() {
   });
 
   // Fetch order details
-  const { data: order, isLoading: orderLoading } = useQuery({
+  const { data: orderResponse, isLoading: orderLoading } = useQuery({
     queryKey: queryKeys.orders.detail(orderId),
     queryFn: () => ordersApi.get(orderId),
     enabled: !!orderId,
   });
+  const order = orderResponse?.order;
 
   // Fetch event details
   const { data: event } = useQuery({
@@ -53,18 +54,9 @@ export default function CheckoutPage() {
   const checkoutMutation = useMutation({
     mutationFn: async () => {
       if (!order) throw new Error("No order found");
-      
-      // Update order with customer info first
-      await ordersApi.updateTotals(order.id, {
-        customer_address_line1: formData.addressLine1,
-        customer_address_line2: formData.addressLine2,
-        customer_city: formData.city,
-        customer_state_code: formData.state,
-        customer_postal_code: formData.postalCode,
-        customer_country_code: formData.country,
-      });
 
       // Create Stripe checkout session
+      // Note: Customer info from the form will be collected by Stripe Checkout
       const session = await paymentsApi.createCheckoutSession({
         order_id: order.id,
       });

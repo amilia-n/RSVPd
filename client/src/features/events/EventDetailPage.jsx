@@ -161,9 +161,50 @@ export default function EventDetailPage() {
 
   // Create order mutation
   const createOrderMutation = useMutation({
-    mutationFn: (data) => ordersApi.create(data),
-    onSuccess: (order) => {
-      navigate(`${PATHS.checkout}?orderId=${order.id}&eventId=${id}`);
+    mutationFn: async (data) => {
+      // Create the order
+      const orderResponse = await ordersApi.create(data);
+      const orderId = orderResponse?.order?.id;
+
+      if (!orderId) {
+        throw new Error('No order ID returned from server');
+      }
+
+      // Add items to the order
+      const items = Object.entries(selectedTickets)
+        .filter(([, qty]) => qty > 0)
+        .map(([ticketTypeId, quantity]) => {
+          const ticketType = ticketTypes?.rows?.find((t) => t.id === ticketTypeId);
+          return {
+            order_id: orderId,
+            event_id: id,
+            ticket_type_id: ticketTypeId,
+            quantity,
+            unit_price_cents: ticketType?.price_cents || 0,
+            total_cents: (ticketType?.price_cents || 0) * quantity,
+          };
+        });
+
+      // Add each item to the order
+      for (const item of items) {
+        await ordersApi.addItem(orderId, item);
+      }
+
+      // Calculate and update order totals
+      const subtotal = items.reduce((sum, item) => sum + item.total_cents, 0);
+      await ordersApi.updateTotals(orderId, {
+        subtotal_cents: subtotal,
+        discount_cents: 0,
+        fees_cents: 0,
+        tax_cents: 0,
+        total_cents: subtotal,
+      });
+
+      return orderResponse;
+    },
+    onSuccess: (response) => {
+      const orderId = response?.order?.id;
+      navigate(`${PATHS.checkout}?orderId=${orderId}&eventId=${id}`);
     },
   });
 
