@@ -190,10 +190,14 @@ getEventWithVenue: `
     ORDER BY start_at DESC
     LIMIT $3 OFFSET $4`,
 
-  searchEventsPublic: `
-    SELECT e.*, o.name AS org_name
+   searchEventsPublic: `
+    SELECT e.*, 
+           o.name AS org_name,
+           v.name AS venue_name,
+           v.address1, v.address2, v.city, v.state_code, v.postal_code
     FROM events e
     JOIN organizations o ON o.id = e.org_id
+    LEFT JOIN venues v ON v.id = e.venue_id
     WHERE visibility='PUBLIC' AND status IN ('PUBLISHED','COMPLETED')
       AND (
         COALESCE($1,'') = '' 
@@ -206,7 +210,10 @@ getEventWithVenue: `
   cancelEvent:  `UPDATE events SET status='CANCELLED', updated_at=now() WHERE id=$1 RETURNING *`,
 
   listUpcomingPublicEvents: `
-    SELECT e.*, o.name AS org_name, v.name AS venue_name
+    SELECT e.*, 
+           o.name AS org_name, 
+           v.name AS venue_name,
+           v.address1, v.address2, v.city, v.state_code, v.postal_code
     FROM events e
     JOIN organizations o ON o.id = e.org_id
     LEFT JOIN venues v ON v.id = e.venue_id
