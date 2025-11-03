@@ -28,8 +28,8 @@ export default function CheckoutSuccessPage() {
   });
 
   useEffect(() => {
-    if (orderTickets && orderTickets.length > 0) {
-      setTickets(orderTickets);
+    if (orderTickets?.rows && orderTickets.rows.length > 0) {
+      setTickets(orderTickets.rows);
       setLoading(false);
     }
   }, [orderTickets]);

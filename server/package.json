@@ -13,6 +13,7 @@
     "db:seed": "node src/db/seed.js",
     "db:init:node": "node src/db/init.js",
     "db:reset:node": "node src/db/reset.js",
+    "db:setup:render": "node scripts/render-db-setup.js",
     "test": "docker compose down -v && docker system prune -af --volumes && bash scripts/test.sh",
     "test:run": "vitest run",
     "test:watch": "vitest watch",
