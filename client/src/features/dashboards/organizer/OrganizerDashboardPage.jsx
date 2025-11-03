@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMe } from "@/features/users/useMe";
 import { Calendar, Ticket, TrendingUp, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,10 +16,8 @@ import eventsApi from "@/features/events/events.api";
 import { queryKeys } from "@/utils/queryKeys";
 import { PATHS } from "@/routes/paths";
 import usersApi from "@/features/users/users.api";
-// import { formatCurrency } from "@/lib/utils";
 
 export default function OrganizerDashboardPage() {
-  const { user } = useMe();
   const queryClient = useQueryClient();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 

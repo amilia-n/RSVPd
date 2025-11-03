@@ -19,6 +19,9 @@ import ScanPage from "@/features/checkins/ScanPage";
 import LiveCheckinsPage from "@/features/checkins/LiveCheckinsPage";
 import EventAnalyticsPage from "@/features/analytics/EventAnalyticsPage";
 import OrgAnalyticsPage from "@/features/analytics/OrgAnalyticsPage";
+import TicketDetailPage from "@/features/tickets/TicketDetailPage";
+import MyTicketsPage from "@/features/tickets/MyTicketsPage";
+import LoginPage from "@/features/auth/LoginPage";
 
 export default function App() {
   return (
@@ -26,6 +29,7 @@ export default function App() {
       <Shell>
         <Routes>
           <Route path={PATHS.home} element={<EventsPage />} />
+          <Route path={PATHS.login} element={<LoginPage />} />
 
           <Route path={PATHS.dashboard} element={<RoleRedirect />} />
 
@@ -41,7 +45,7 @@ export default function App() {
             <Route path="/events/:id/analytics" element={<EventAnalyticsPage />} />
             <Route path={PATHS.checkinsLive} element={<LiveCheckinsPage />} />
           </Route>
-
+          
           {/* Vendor */}
           <Route element={<ProtectedRoute roles={[ROLES.VENDOR, ROLES.ADMIN]} />}>
             <Route path={PATHS.vendor} element={<VendorDashboardPage />} />
@@ -53,7 +57,12 @@ export default function App() {
             <Route path={PATHS.attendee} element={<AttendeeDashboardPage />} />
             <Route path={PATHS.checkout} element={<CheckoutPage />} />
             <Route path={PATHS.checkoutSuccess} element={<CheckoutSuccessPage />} />
+            <Route path={PATHS.tickets} element={<MyTicketsPage />} />
+            <Route path="/tickets/:id" element={<TicketDetailPage />} />
           </Route>
+
+          {/* Public routes */}
+          <Route path="/events/:id" element={<EventDetailPage />} />
         </Routes>
       </Shell>
     </BrowserRouter>
