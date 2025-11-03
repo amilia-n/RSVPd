@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
+    "docker:start": "docker compose down -v && docker system prune -af --volumes && docker compose build --no-cache && docker compose --profile seed up",
+    "docker:stop": "docker compose down -v && docker system prune -af --volumes",
     "db:init": "bash scripts/db-init.sh",
     "db:reset": "bash scripts/db-reset.sh",
     "db:seed": "node src/db/seed.js",

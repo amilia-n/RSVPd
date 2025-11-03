@@ -1,0 +1,62 @@
+# This Dockerfile is for building the app locally
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: rsvp-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: rsvpd
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rsvpd"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  api:
+    build:
+      context: .
+      args:
+        NODE_VERSION: 20
+    container_name: rsvp-api
+    # API keys, etc should all be from .env file
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: development
+      CORS_ORIGIN: "http://localhost:5173"
+      # Override DATABASE_URL to use Docker service name "db" instead of localhost
+      DATABASE_URL: postgres://postgres:mypassword@db:5432/rsvpd?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "7777:7777"
+    restart: unless-stopped
+
+  # One-shot initializer/seed runner - runs when using --profile seed
+  initdb:
+    profiles: ["seed"]
+    build:
+      context: .
+      args:
+        NODE_VERSION: 20
+    container_name: rsvp-initdb
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgres://postgres:mypassword@db:5432/rsvpd?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+    # runs init+seed then exits cleanly
+    command: ["sh", "-c", "echo '🌱 Initializing and seeding database...' && node ./src/db/init.js && node ./src/db/seed.js && echo '✅ Database seeding complete!'"]
+    restart: "no"
+
+volumes:
+  pgdata:
