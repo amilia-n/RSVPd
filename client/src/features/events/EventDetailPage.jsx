@@ -292,7 +292,7 @@ export default function EventDetailPage() {
         <CardHeader>
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <CardTitle className="text-3xl mb-2">{event.title}</CardTitle>
+              <CardTitle className="text-3xl mb-5">{event.title}</CardTitle>
               <div className="flex items-center gap-2 mb-2">
                 <Badge variant={event.status === "PUBLISHED" ? "default" : "outline"}>
                   {event.event_type}
@@ -435,16 +435,16 @@ export default function EventDetailPage() {
           {/* Vendors */}
           {vendors.length > 0 && (
             <div className="space-y-2">
-              <h3 className="font-semibold flex items-center gap-2">
+              <h3 className="ml-4 font-semibold flex items-center gap-2">
                 <Users className="size-5" />
                 Vendors
               </h3>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3">
                 {vendors.map((vendor) => (
                   <Card key={vendor.id}>
                     <CardContent className="pt-4">
                       <div className="flex items-center gap-3">
-                        <User className="size-10 text-muted-foreground" />
+                        <User className="size-8 text-muted-foreground" />
                         <div className="flex-1">
                           <div className="font-medium">{vendor.name}</div>
                           {vendor.email && (

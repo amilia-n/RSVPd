@@ -155,12 +155,12 @@ getEventWithVenue: `
         JOIN users u ON u.id = om.user_id
         WHERE om.org_id = e.org_id AND om.role_name = 'VENDOR'
       ),
-      '[]'::json
+      '[]'
     ) AS vendors,
     COALESCE(
       (
         SELECT json_agg(
-          json_build_object(
+          DISTINCT jsonb_build_object(
             'id', sp.id,
             'full_name', sp.full_name,
             'title', sp.title,
@@ -173,14 +173,14 @@ getEventWithVenue: `
         JOIN session_speakers ss ON ss.session_id = s.id
         JOIN speakers sp ON sp.id = ss.speaker_id
         WHERE s.event_id = e.id
-        GROUP BY sp.id, sp.full_name, sp.title, sp.company, sp.bio_md, sp.headshot_url
       ),
-      '[]'::json
+      '[]'
     ) AS speakers
   FROM events e
-  LEFT JOIN organizations o ON o.id = e.org_id
+  JOIN organizations o ON o.id = e.org_id
   LEFT JOIN venues v ON v.id = e.venue_id
-  WHERE e.id = $1`,
+  WHERE e.id = $1
+`,
 
   findEventByOrgAndSlug: `SELECT * FROM events WHERE org_id=$1 AND slug=$2`,
 
@@ -190,7 +190,7 @@ getEventWithVenue: `
     ORDER BY start_at DESC
     LIMIT $3 OFFSET $4`,
 
-   searchEventsPublic: `
+  searchEventsPublic: `
     SELECT e.*, 
            o.name AS org_name,
            v.name AS venue_name,
