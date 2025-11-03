@@ -27,6 +27,7 @@ export const PATHS = {
 
   checkinsScan: "/checkins/scan",
   checkinsLive: "/checkins/live",
+  checkinsLiveForEvent: (eventId) => `/checkins/live/${eventId}`,
 
   // analytics
   eventAnalytics: (eventId) => `/events/${eventId}/analytics`,

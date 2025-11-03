@@ -99,7 +99,7 @@ export default function LoginPage() {
 
             <div className="text-center text-sm text-muted-foreground">
               Don't have an account?{" "}
-              <Link to="/register" className="text-primary hover:underline">
+              <Link to={PATHS.register} className="text-primary hover:underline">
                 Register
               </Link>
             </div>

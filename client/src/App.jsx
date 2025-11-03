@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";  // ← Removed BrowserRouter
 import Shell from "@/components/layout/Shell";
 import RoleRedirect from "@/routes/RoleRedirect";
 import ProtectedRoute from "@/routes/ProtectedRoute";
@@ -22,49 +22,46 @@ import OrgAnalyticsPage from "@/features/analytics/OrgAnalyticsPage";
 import TicketDetailPage from "@/features/tickets/TicketDetailPage";
 import MyTicketsPage from "@/features/tickets/MyTicketsPage";
 import LoginPage from "@/features/auth/LoginPage";
+import RegisterPage from "@/features/auth/RegisterPage";
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Shell>
-        <Routes>
-          <Route path={PATHS.home} element={<EventsPage />} />
-          <Route path={PATHS.login} element={<LoginPage />} />
+    <Shell>
+      <Routes>
+        <Route path={PATHS.home} element={<EventsPage />} />
+        <Route path={PATHS.login} element={<LoginPage />} />
+        <Route path={PATHS.register} element={<RegisterPage />} />
+        <Route path="/events/:id" element={<EventDetailPage />} />
+        <Route path={PATHS.dashboard} element={<RoleRedirect />} />
 
-          <Route path={PATHS.dashboard} element={<RoleRedirect />} />
+        {/* Admin */}
+        <Route element={<ProtectedRoute roles={[ROLES.ADMIN]} />}>
+          <Route path={PATHS.admin} element={<AdminDashboardPage />} />
+        </Route>
 
-          {/* Admin */}
-          <Route element={<ProtectedRoute roles={[ROLES.ADMIN]} />}>
-            <Route path={PATHS.admin} element={<AdminDashboardPage />} />
-          </Route>
+        {/* Organizer */}
+        <Route element={<ProtectedRoute roles={[ROLES.ORGANIZER, ROLES.ADMIN]} />}>
+          <Route path={PATHS.organizer} element={<OrganizerDashboardPage />} />
 
-          {/* Organizer */}
-          <Route element={<ProtectedRoute roles={[ROLES.ORGANIZER, ROLES.ADMIN]} />}>
-            <Route path={PATHS.organizer} element={<OrganizerDashboardPage />} />
-            <Route path="/events/:id" element={<EventDetailPage />} />
-            <Route path="/events/:id/analytics" element={<EventAnalyticsPage />} />
-            <Route path={PATHS.checkinsLive} element={<LiveCheckinsPage />} />
-          </Route>
-          
-          {/* Vendor */}
-          <Route element={<ProtectedRoute roles={[ROLES.VENDOR, ROLES.ADMIN]} />}>
-            <Route path={PATHS.vendor} element={<VendorDashboardPage />} />
-            <Route path={PATHS.checkinsScan} element={<ScanPage />} />
-          </Route>
+          <Route path="/events/:id/analytics" element={<EventAnalyticsPage />} />
+          <Route path="/checkins/live/:eventId" element={<LiveCheckinsPage />} />
+        </Route>
 
-          {/* Attendee */}
-          <Route element={<ProtectedRoute roles={[ROLES.ATTENDEE, ROLES.ADMIN]} />}>
-            <Route path={PATHS.attendee} element={<AttendeeDashboardPage />} />
-            <Route path={PATHS.checkout} element={<CheckoutPage />} />
-            <Route path={PATHS.checkoutSuccess} element={<CheckoutSuccessPage />} />
-            <Route path={PATHS.tickets} element={<MyTicketsPage />} />
-            <Route path="/tickets/:id" element={<TicketDetailPage />} />
-          </Route>
+        {/* Vendor */}
+        <Route element={<ProtectedRoute roles={[ROLES.VENDOR, ROLES.ADMIN]} />}>
+          <Route path={PATHS.vendor} element={<VendorDashboardPage />} />
+          <Route path={PATHS.checkinsScan} element={<ScanPage />} />
+        </Route>
 
-          {/* Public routes */}
-          <Route path="/events/:id" element={<EventDetailPage />} />
-        </Routes>
-      </Shell>
-    </BrowserRouter>
+        {/* Attendee */}
+        <Route element={<ProtectedRoute roles={[ROLES.ATTENDEE, ROLES.ADMIN]} />}>
+          <Route path={PATHS.attendee} element={<AttendeeDashboardPage />} />
+          <Route path={PATHS.checkout} element={<CheckoutPage />} />
+          <Route path={PATHS.checkoutSuccess} element={<CheckoutSuccessPage />} />
+          <Route path={PATHS.tickets} element={<MyTicketsPage />} />
+          <Route path="/tickets/:id" element={<TicketDetailPage />} />
+        </Route>
+      </Routes>
+    </Shell>
   );
 }

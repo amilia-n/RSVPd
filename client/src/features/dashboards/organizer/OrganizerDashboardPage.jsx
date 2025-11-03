@@ -1,12 +1,32 @@
 import { useQuery } from "@tanstack/react-query";
 import { Calendar, Ticket, TrendingUp, Users } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Spinner } from "@/components/ui/spinner";
 import { Link } from "react-router-dom";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -64,10 +84,10 @@ export default function OrganizerDashboardPage() {
 
   // Calculate stats
   const totalEvents = events?.rows?.length || 0;
-  const publishedEvents = events?.rows?.filter((e) => e.status === "PUBLISHED").length || 0;
-  const upcomingEvents = events?.rows?.filter(
-    (e) => new Date(e.start_at) > new Date()
-  ).length || 0;
+  const publishedEvents =
+    events?.rows?.filter((e) => e.status === "PUBLISHED").length || 0;
+  const upcomingEvents =
+    events?.rows?.filter((e) => new Date(e.start_at) > new Date()).length || 0;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -96,7 +116,12 @@ export default function OrganizerDashboardPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="slug">Slug *</Label>
-                <Input id="slug" name="slug" required placeholder="my-event-2024" />
+                <Input
+                  id="slug"
+                  name="slug"
+                  required
+                  placeholder="my-event-2024"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="summary">Summary</Label>
@@ -109,11 +134,21 @@ export default function OrganizerDashboardPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="start_at">Start Date/Time *</Label>
-                  <Input id="start_at" name="start_at" type="datetime-local" required />
+                  <Input
+                    id="start_at"
+                    name="start_at"
+                    type="datetime-local"
+                    required
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="end_at">End Date/Time *</Label>
-                  <Input id="end_at" name="end_at" type="datetime-local" required />
+                  <Input
+                    id="end_at"
+                    name="end_at"
+                    type="datetime-local"
+                    required
+                  />
                 </div>
               </div>
               <div className="flex justify-end gap-2">
@@ -220,7 +255,14 @@ export default function OrganizerDashboardPage() {
                           <Link to={PATHS.eventDetail(event.id)}>View</Link>
                         </Button>
                         <Button variant="outline" size="sm" asChild>
-                          <Link to={PATHS.eventAnalytics(event.id)}>Analytics</Link>
+                          <Link to={PATHS.eventAnalytics(event.id)}>
+                            Analytics
+                          </Link>
+                        </Button>
+                        <Button variant="outline" size="sm" asChild>
+                          <Link to={`/checkins/live/${event.id}`}>
+                            Live Check-Ins
+                          </Link>
                         </Button>
                       </div>
                     </TableCell>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { QrScanner } from "qr-scanner";
+import QrScanner from "qr-scanner";
 import { CheckCircle2, XCircle, Scan, Camera, CameraOff } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

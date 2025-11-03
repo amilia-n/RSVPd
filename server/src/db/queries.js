@@ -109,11 +109,56 @@ export const queries = {
 
   getEvent: `SELECT * FROM events WHERE id=$1`,
 
-  getEventWithVenue: `
-    SELECT e.*, v.name AS venue_name, v.address1, v.address2, v.city, v.state_code, v.postal_code
-    FROM events e
-    LEFT JOIN venues v ON v.id = e.venue_id
-    WHERE e.id = $1`,
+getEventWithVenue: `
+  SELECT 
+    e.*,
+    o.name AS org_name,
+    v.name AS venue_name,
+    v.address1,
+    v.address2,
+    v.city,
+    v.state_code,
+    v.postal_code,
+    COALESCE(
+      (
+        SELECT json_agg(
+          json_build_object(
+            'id', u.id,
+            'name', u.first_name || ' ' || u.last_name,
+            'email', u.email,
+            'phone', u.phone
+          )
+        )
+        FROM org_members om
+        JOIN users u ON u.id = om.user_id
+        WHERE om.org_id = e.org_id AND om.role_name = 'VENDOR'
+      ),
+      '[]'::json
+    ) AS vendors,
+    COALESCE(
+      (
+        SELECT json_agg(
+          json_build_object(
+            'id', sp.id,
+            'full_name', sp.full_name,
+            'title', sp.title,
+            'company', sp.company,
+            'bio_md', sp.bio_md,
+            'headshot_url', sp.headshot_url
+          )
+        )
+        FROM sessions s
+        JOIN session_speakers ss ON ss.session_id = s.id
+        JOIN speakers sp ON sp.id = ss.speaker_id
+        WHERE s.event_id = e.id
+        GROUP BY sp.id, sp.full_name, sp.title, sp.company, sp.bio_md, sp.headshot_url
+      ),
+      '[]'::json
+    ) AS speakers
+  FROM events e
+  LEFT JOIN organizations o ON o.id = e.org_id
+  LEFT JOIN venues v ON v.id = e.venue_id
+  WHERE e.id = $1`,
 
   findEventByOrgAndSlug: `SELECT * FROM events WHERE org_id=$1 AND slug=$2`,
 

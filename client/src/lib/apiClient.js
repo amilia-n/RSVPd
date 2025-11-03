@@ -21,7 +21,17 @@ client.interceptors.response.use(
   (response) => (response.data === "" ? null : response.data),
   (error) => {
     if (error.response?.status === 401) {
-      if (window.location.pathname !== "/login") {
+      // Public paths that should NOT redirect on 401
+      const publicPaths = ["/", "/login", "/register"];
+      const isPublicPath = publicPaths.includes(window.location.pathname);
+      const isPublicEventPath = window.location.pathname.startsWith("/events/");
+
+      // Only redirect on protected pages, not public pages
+      if (
+        !isPublicPath &&
+        !isPublicEventPath &&
+        window.location.pathname !== "/login"
+      ) {
         window.location.href = "/login";
       }
     }

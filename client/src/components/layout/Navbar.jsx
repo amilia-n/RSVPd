@@ -2,7 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useMe } from "@/features/users/useMe";
 import { MagicBell } from "@magicbell/magicbell-react";
 import { Button } from "@/components/ui/button";
-import { LogOut, Home } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { PATHS } from "@/routes/paths";
 import { ROLES } from "@/constants/roles";
 import authApi from "@/features/auth/auth.api";
@@ -34,7 +34,7 @@ export default function Navbar() {
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-4">
             <Link to={PATHS.home} className="flex items-center gap-2">
-              <Home className="size-6" />
+              <img src="/icon.png" alt="RSVP" className="size-6" />
               <span className="font-bold text-lg">RSVP</span>
             </Link>
 
