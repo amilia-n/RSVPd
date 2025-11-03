@@ -14,9 +14,10 @@ A comprehensive Node.js backend API for the RSVP Event Management Platform. Buil
 - [Routes](#routes)
 - [Dependencies](#dependencies)
 - [Setup](#setup)
+- [Running the App with Docker](#running-the-app-with-docker)
 - [Environment Variables](#environment-variables)
 - [Database Management](#database-management)
-- [Tests](#Tests)
+- [Testing](#testing)
 
 ## Overview
 
@@ -49,63 +50,79 @@ The backend follows a layered architecture:
 ## Directory Structure
 
 ```
-src/
-├── config/                 # Configuration
-│   ├── db.js              # Database connection pool
-│   └── env.js            # Environment variable validation
-├── constants/             # Application constants
-│   └── roles.js          # User role definitions
-├── controllers/           # Request handlers
-│   ├── auth.controller.js
-│   ├── checkins.controller.js
-│   ├── events.controller.js
-│   ├── notification.controller.js
-│   ├── orders.controller.js
-│   ├── payments.controller.js
-│   ├── tickets.controller.js
-│   ├── ticketTypes.controller.js
-│   └── user.controller.js
-├── db/                    # Database layer
-│   ├── db.sql            # Database schema
-│   ├── queries.js        # SQL query definitions
-│   ├── pool.js           # Connection pool setup
-│   ├── init.js           # Database initialization
-│   ├── reset.js          # Database reset utility
-│   ├── seed.js           # Database seeding
-│   └── seed.sql          # Seed data SQL
-├── middleware/            # Express middleware
-│   ├── auth.js           # Authentication middleware
-│   ├── error.js          # Error handling middleware
-│   └── notFound.js       # 404 handler
-├── routes/                # Route definitions
-│   ├── auth.routes.js
-│   ├── checkins.routes.js
-│   ├── events.routes.js
-│   ├── notifications.routes.js
-│   ├── orders.routes.js
-│   ├── payments.routes.js
-│   ├── tickets.routes.js
-│   ├── ticketTypes.routes.js
-│   └── users.routes.js
-├── services/              # Business logic
-│   ├── attendee.service.js
-│   ├── auth.service.js
-│   ├── checkin.service.js
-│   ├── event.service.js
-│   ├── magicbell.service.js
-│   ├── notification.service.js
-│   ├── order.service.js
-│   ├── payment.service.js
-│   ├── stripe.service.js
-│   ├── ticket.service.js
-│   ├── ticketTypes.service.js
-│   └── user.service.js
-└── utils/                 # Utility functions
-    ├── crypto.js         # Cryptographic utilities
-    ├── http.js           # HTTP utilities
-    ├── password.js       # Password hashing (Argon2)
-    ├── qr.js             # QR code utilities
-    └── token.js          # JWT token utilities
+server/
+├── src/
+│   ├── config/                 # Configuration
+│   │   ├── db.js              # Database connection pool
+│   │   └── env.js            # Environment variable validation
+│   ├── constants/             # Application constants
+│   │   └── roles.js          # User role definitions
+│   ├── controllers/           # Request handlers
+│   │   ├── auth.controller.js
+│   │   ├── checkins.controller.js
+│   │   ├── events.controller.js
+│   │   ├── notification.controller.js
+│   │   ├── orders.controller.js
+│   │   ├── payments.controller.js
+│   │   ├── tickets.controller.js
+│   │   ├── ticketTypes.controller.js
+│   │   └── user.controller.js
+│   ├── db/                    # Database layer
+│   │   ├── db.sql            # Database schema
+│   │   ├── queries.js        # SQL query definitions
+│   │   ├── pool.js           # Connection pool setup
+│   │   ├── init.js           # Database initialization
+│   │   ├── reset.js          # Database reset utility
+│   │   ├── seed.js           # Database seeding
+│   │   └── seed.sql          # Seed data SQL
+│   ├── middleware/            # Express middleware
+│   │   ├── auth.js           # Authentication middleware
+│   │   ├── error.js          # Error handling middleware
+│   │   └── notFound.js       # 404 handler
+│   ├── routes/                # Route definitions
+│   │   ├── auth.routes.js
+│   │   ├── checkins.routes.js
+│   │   ├── events.routes.js
+│   │   ├── notifications.routes.js
+│   │   ├── orders.routes.js
+│   │   ├── payments.routes.js
+│   │   ├── tickets.routes.js
+│   │   ├── ticketTypes.routes.js
+│   │   └── users.routes.js
+│   ├── services/              # Business logic
+│   │   ├── attendee.service.js
+│   │   ├── auth.service.js
+│   │   ├── checkin.service.js
+│   │   ├── event.service.js
+│   │   ├── magicbell.service.js
+│   │   ├── notification.service.js
+│   │   ├── order.service.js
+│   │   ├── payment.service.js
+│   │   ├── stripe.service.js
+│   │   ├── ticket.service.js
+│   │   ├── ticketTypes.service.js
+│   │   └── user.service.js
+│   └── utils/                 # Utility functions
+│       ├── crypto.js         # Cryptographic utilities
+│       ├── http.js           # HTTP utilities
+│       ├── password.js       # Password hashing (Argon2)
+│       ├── qr.js             # QR code utilities
+│       └── token.js          # JWT token utilities
+├── tests/                     # Test files
+│   ├── setup.js              # Global test setup/teardown
+│   └── auth.test.js          # Authentication API tests
+├── scripts/                   # Utility scripts
+│   ├── db-init.sh            # Database initialization script
+│   ├── db-reset.sh           # Database reset script
+│   ├── db-seed.sh            # Database seeding script
+│   └── test.sh               # Test orchestration script
+├── docker-compose.yml         # Production Docker Compose
+├── docker-compose.test.yml    # Test Docker Compose
+├── Dockerfile                 # Production Dockerfile
+├── Dockerfile.test            # Test Dockerfile
+├── vitest.config.js          # Vitest test configuration
+├── package.json              # Dependencies and scripts
+└── server.js                 # Application entry point
 ```
 
 ## Database Schema
@@ -441,6 +458,8 @@ Routes apply middleware for authentication and authorization based on endpoint r
 ### Development Dependencies
 
 - **nodemon** (^3.1.10): Development server with auto-reload
+- **vitest** (^4.0.6): Modern, fast test runner
+- **supertest** (^7.1.4): HTTP assertion library for API testing
 
 ## Setup
 
@@ -450,6 +469,7 @@ Routes apply middleware for authentication and authorization based on endpoint r
 - PostgreSQL 14+
 - Stripe account (for payments)
 - MagicBell account (for notifications)
+- Docker (optional)
 
 ### Installation
 
@@ -504,6 +524,21 @@ npm run dev
 ```
 
 The API will be available at `http://localhost:7777`.
+
+## Running the App with Docker
+
+You can also run the API with Docker by running:
+```bash
+npm run docker:start
+```
+
+This command will:
+1. Create a PostgreSQL Docker container
+2. Seed the database with realistic data
+3. Build and start the API server
+4. Connect the API to the PostgreSQL container
+
+This is ideal if you want an isolated environment without affecting your local PostgreSQL installation.
 
 ## Environment Variables
 
@@ -584,47 +619,118 @@ psql $DATABASE_URL -f src/db/seed.sql
 - Stripe webhook signature verification
 - CORS configuration
 
-## Tests
-Testing is setup using docker, this allows users to test the app with realistic data without requiring any setup other than having docker installed.
+## Testing
 
-### To run the API tests:
+The backend uses a comprehensive Docker-based testing infrastructure with **Vitest** and **Supertest** for API integration tests. Tests run in complete isolation with a fresh database for each test run.
 
-**You must have Docker installed**
+### Test Infrastructure
+
+- **Test Runner**: Vitest (fast, modern alternative to Jest)
+- **HTTP Testing**: Supertest (for API endpoint testing)
+- **Database**: Isolated PostgreSQL container with tmpfs (in-memory storage for speed)
+- **Test Data**: Automatically seeded with realistic data
+- **Cleanup**: Automatic container and resource cleanup after tests
+
+### Running Tests
+
+**Prerequisites**: Docker must be installed
+
+Run the full test suite:
+```bash
+npm test
 ```
-npm run test
+
+Run tests in watch mode (for development):
+```bash
+npm run test:watch
 ```
 
-This will kick off the following process:
-1) it will create a database image (wont need user to install postgres or set it up)
-2) it will seed the database using rich, realistic data
-3) it will install dependencies for the server
-4) it will run the server tests
-5) finally, after reporting details for the test, it will remove the docker container
-
-Example run:
+Run tests with coverage reports:
+```bash
+npm run test:coverage
 ```
- ✓ tests/auth.test.js > Authentication API > POST /api/auth/login > should fail with invalid password 35ms
- ✓ tests/auth.test.js > Authentication API > POST /api/auth/login > should fail with non-existent user 3ms
- ✓ tests/auth.test.js > Authentication API > POST /api/auth/login > should fail with missing email 2ms
- ✓ tests/auth.test.js > Authentication API > POST /api/auth/login > should fail with missing password 2ms
- ✓ tests/auth.test.js > Authentication API > POST /api/auth/register > should register a new user successfully 40ms
- ✓ tests/auth.test.js > Authentication API > POST /api/auth/register > should fail to register with duplicate email 38ms
-stdout | tests/auth.test.js
-Test database connection closed
 
- ✓ tests/auth.test.js > Authentication API > GET /api/auth/me > should return user profile when authenticated 39ms
- ✓ tests/auth.test.js > Authentication API > GET /api/auth/me > should return 401 when not authenticated 2ms
- ✓ tests/auth.test.js > Authentication API > POST /api/auth/logout > should logout successfully 34ms
+### Test Execution Flow
 
- Test Files  1 passed (1)
-      Tests  13 passed (13)
-   Start at  19:05:06
-   Duration  1.08s (transform 371ms, setup 183ms, collect 370ms, tests 381ms, environment 0ms, prepare 3ms)
+When you run `npm test`, the following happens automatically:
 
+1. **Build**: Creates isolated test Docker containers
+2. **Start Database**: Launches PostgreSQL test database with health checks
+3. **Initialize Schema**: Applies database schema from `src/db/db.sql`
+4. **Seed Data**: Populates database with realistic test data
+5. **Run Tests**: Executes all tests in `tests/` directory
+6. **Report Results**: Displays test results with detailed output
+7. **Cleanup**: Removes all containers and Docker resources
+
+### Test Data
+
+The test database is seeded with the following users (password: `password123` for all except admin):
+
+- **Admin**: `admin@events.local` / `ADMINCONTROL123`
+- **Organizers**: `olivia@org1.local`, `ben@org2.local`, `gina@org3.local`
+- **Vendors**: `vendor1@org1.local` through `vendor5@org3.local`
+- **Attendees**: `attendee1@mail.local` through `attendee60@mail.local`
+
+### Test Files
+
+Current test coverage:
+
+- `tests/auth.test.js` - Authentication API tests (13 tests)
+  - Login with different roles (admin, organizer, vendor, attendee)
+  - User registration and validation
+  - Profile retrieval
+  - Logout functionality
+  - Error handling (401, 400, duplicate email, etc.)
+
+### Example Test Output
+
+```
+✓ tests/auth.test.js > Authentication API > POST /api/auth/login > should login successfully with valid admin credentials 65ms
+✓ tests/auth.test.js > Authentication API > POST /api/auth/login > should login successfully with valid attendee credentials 34ms
+✓ tests/auth.test.js > Authentication API > POST /api/auth/login > should login successfully with valid organizer credentials 37ms
+✓ tests/auth.test.js > Authentication API > POST /api/auth/login > should login successfully with valid vendor credentials 36ms
+✓ tests/auth.test.js > Authentication API > POST /api/auth/login > should fail with invalid password 34ms
+✓ tests/auth.test.js > Authentication API > POST /api/auth/login > should fail with non-existent user 3ms
+✓ tests/auth.test.js > Authentication API > POST /api/auth/login > should fail with missing email 2ms
+✓ tests/auth.test.js > Authentication API > POST /api/auth/login > should fail with missing password 1ms
+✓ tests/auth.test.js > Authentication API > POST /api/auth/register > should register a new user successfully 37ms
+✓ tests/auth.test.js > Authentication API > POST /api/auth/register > should fail to register with duplicate email 38ms
+✓ tests/auth.test.js > Authentication API > GET /api/auth/me > should return user profile when authenticated 40ms
+✓ tests/auth.test.js > Authentication API > GET /api/auth/me > should return 401 when not authenticated 2ms
+✓ tests/auth.test.js > Authentication API > POST /api/auth/logout > should logout successfully 36ms
+
+Test Files  1 passed (1)
+     Tests  13 passed (13)
+  Start at  18:58:11
+  Duration  974ms (transform 307ms, setup 129ms, collect 353ms, tests 387ms, environment 0ms, prepare 3ms)
 
 ==================================
 ✅ All tests passed!
 ==================================
 ```
+
+### Writing New Tests
+
+To add new test files:
+
+1. Create a new file in the `tests/` directory (e.g., `tests/events.test.js`)
+2. Import required dependencies:
+   ```javascript
+   import { describe, it, expect } from 'vitest';
+   import request from 'supertest';
+   import express from 'express';
+   import cookieParser from 'cookie-parser';
+   ```
+3. Create Express app and mount routes:
+   ```javascript
+   const app = express();
+   app.use(express.json());
+   app.use(cookieParser());
+   app.use('/api/events', eventRoutes);
+   ```
+4. Write your tests following the existing patterns
+5. Run `npm test` to execute all tests
+
+Tests automatically have access to the seeded database with all test users and data.
 
 
