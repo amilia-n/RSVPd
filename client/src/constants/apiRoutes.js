@@ -5,6 +5,7 @@ export const API_ROUTES = {
     login: '/api/auth/login',
     logout: '/api/auth/logout',
     me: '/api/auth/me',
+    magicBellHmac: '/api/auth/magicbell-hmac',
   },
 
   // ───────────────────────── Users ─────────────────────────

@@ -7,5 +7,6 @@ r.post("/register", c.register);
 r.post("/login", c.login);
 r.post("/logout", c.logout);
 r.get("/me", requireAuth, c.me);
+r.get("/magicbell-hmac", requireAuth, c.getMagicBellHmac);
 
 export default r;

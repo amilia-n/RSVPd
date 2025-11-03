@@ -1,5 +1,6 @@
 import * as AuthService from "../services/auth.service.js";
 import * as UserService from "../services/user.service.js";
+import * as MagicBellService from "../services/magicbell.service.js";
 import { config } from "../config/env.js";
 
 const COOKIE_OPTS = {
@@ -58,6 +59,19 @@ export async function me(req, res) {
     const user = await UserService.getById(id);
     if (!user) return res.status(404).json({ error: { message: "User not found" } });
     return res.json({ user });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: { message: "Internal Server Error" } });
+  }
+}
+
+export async function getMagicBellHmac(req, res) {
+  try {
+    const id = req.user?.id;
+    if (!id) return res.status(401).json({ error: { message: "Unauthorized" } });
+
+    const hmac = MagicBellService.generateUserHmac(id);
+    return res.json({ userExternalId: id.toString(), userHmac: hmac });
   } catch (e) {
     console.error(e);
     return res.status(500).json({ error: { message: "Internal Server Error" } });

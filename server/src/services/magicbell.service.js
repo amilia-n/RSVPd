@@ -1,4 +1,5 @@
 import axios from 'axios';
+import crypto from 'crypto';
 import { config } from '../config/env.js';
 
 const MAGICBELL_API_URL = 'https://api.magicbell.com';
@@ -47,4 +48,20 @@ export async function sendNotification(userId, title, content, eventId = null) {
   }
 
   return { id: magicbellId };
+}
+
+/**
+ * Generate HMAC for MagicBell user authentication
+ * @param {string} userExternalId - User's external ID (typically user.id)
+ * @returns {string} - HMAC hash for secure authentication
+ */
+export function generateUserHmac(userExternalId) {
+  if (!config.MAGICBELL_API_SECRET) {
+    throw new Error('MagicBell API secret not configured');
+  }
+
+  return crypto
+    .createHmac('sha256', config.MAGICBELL_API_SECRET)
+    .update(userExternalId.toString())
+    .digest('base64');
 }
