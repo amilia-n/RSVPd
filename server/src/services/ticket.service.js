@@ -130,6 +130,19 @@ export async function issueTicketsForOrder(orderId) {
       }
     }
   }
-
+  // Send notification to purchaser
+  try {
+    const notificationService = await import('./notification.service.js');
+    await notificationService.createAndSendNotification({
+      target_user_id: order.purchaser_user_id,
+      title: 'Tickets Issued',
+      body_md: `Your ${issuedTickets.length} ticket(s) for the event have been issued!`,
+      event_id: order.event_id,
+      channel: 'IN_APP',
+    });
+  } catch (err) {
+    // Log error but don't fail ticket issuance
+    console.error(`Failed to send notification for order ${orderId}:`, err);
+  }
   return issuedTickets;
 }

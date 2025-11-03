@@ -12,6 +12,9 @@ r.get("/user/me", requireAuth, c.listForUser);
 r.get("/event/:eventId", requireAuth, c.listForEvent);
 r.get("/queued/list", requireAuth, c.listQueued);
 
+r.post("/send", requireAuth, c.send);
+r.post("/create-and-send", requireAuth, c.createAndSend);
+
 r.post("/devices", requireAuth, c.upsertDevice);
 r.get("/devices/me", requireAuth, c.listDevices);
 r.delete("/devices/:id", requireAuth, c.deleteDevice);

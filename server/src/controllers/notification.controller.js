@@ -75,6 +75,46 @@ export async function listQueued(req, res) {
   }
 }
 
+export async function send(req, res) {
+  try {
+    const { notification_id } = req.body ?? {};
+    if (!notification_id) {
+      return res.status(400).json({ error: { message: "Missing notification_id" } });
+    }
+
+    const notification = await notif.sendNotificationToMagicBell(notification_id);
+    return res.json({ notification });
+  } catch (e) {
+    console.error('MagicBell notification error:', e);
+    if (e.message.includes('not found')) {
+      return res.status(404).json({ error: { message: e.message } });
+    }
+    if (e.message.includes('Cannot send')) {
+      return res.status(400).json({ error: { message: e.message } });
+    }
+    return res.status(500).json({ error: { message: "Failed to send notification" } });
+  }
+}
+
+export async function createAndSend(req, res) {
+  try {
+    const notification = await notif.createAndSendNotification(
+      req.body ?? {},
+      req.user?.id || null
+    );
+    return res.status(201).json({ notification });
+  } catch (e) {
+    console.error('MagicBell notification error:', e);
+    if (e.message.includes('not found')) {
+      return res.status(404).json({ error: { message: e.message } });
+    }
+    if (e.message.includes('credentials not configured')) {
+      return res.status(500).json({ error: { message: "MagicBell not configured" } });
+    }
+    return res.status(500).json({ error: { message: "Failed to create and send notification" } });
+  }
+}
+
 // Devices & Prefs
 export async function upsertDevice(req, res) {
   try {

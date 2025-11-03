@@ -1,5 +1,7 @@
 import pool from "../db/pool.js";
 import { queries } from "../db/queries.js";
+import * as magicbellService from './magicbell.service.js';
+import * as userService from './user.service.js';
 
 export async function enqueueNotification(payload) {
   const {
@@ -102,4 +104,54 @@ export async function upsertUserNotificationPrefs(user_id, prefs) {
     user_id, email_enabled, push_enabled, sms_enabled, in_app_enabled, quiet_hours_json, locale,
   ]);
   return { ok: true };
+}
+
+
+// Send notification to MagicBell and update database record
+
+export async function sendNotificationToMagicBell(notificationId) {
+  // Get notification record
+  const notification = await getNotificationById(notificationId);
+  if (!notification) {
+    throw new Error('Notification not found');
+  }
+
+  if (notification.status !== 'QUEUED') {
+    throw new Error(`Cannot send notification with status: ${notification.status}`);
+  }
+
+  if (!notification.target_user_id) {
+    throw new Error('Notification must have a target_user_id');
+  }
+
+  // Fetch user info (for external_id)
+  const user = await userService.getById(notification.target_user_id);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  // Send to MagicBell
+  const magicbellResult = await magicbellService.sendNotification(
+    notification.target_user_id,  // Use internal user ID as external_id
+    notification.title,
+    notification.body_md || '',
+    notification.event_id || null
+  );
+
+  // Update notification record with MagicBell ID and mark as SENT
+  const updated = await markNotificationSent(notificationId, magicbellResult.id);
+
+  return updated;
+}
+
+
+export async function createAndSendNotification(payload, published_by = null) {
+  const notification = await enqueueNotification({
+    ...payload,
+    published_by,
+  });
+
+  await sendNotificationToMagicBell(notification.id);
+  
+  return await getNotificationById(notification.id);
 }
