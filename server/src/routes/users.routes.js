@@ -30,4 +30,5 @@ r.get("/orgs/:orgId/members", c.listOrgMembers);
 r.post("/orgs/:orgId/members", requireRole("ADMIN", "ORGANIZER"), c.upsertOrgMember);
 r.delete("/orgs/:orgId/members", requireRole("ADMIN", "ORGANIZER"), c.removeOrgMember);
 
+r.get("/orgs/:orgId/venues", c.listVenuesForOrg);
 export default r;

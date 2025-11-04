@@ -204,3 +204,12 @@ export async function listMyOrgs(req, res) {
     return res.status(500).json({ error: { message: "Internal Server Error" } });
   }
 }
+export async function listVenuesForOrg(req, res) {
+  try {
+    const rows = await users.listVenuesForOrg(req.params.orgId);
+    return res.json({ rows });
+  } catch (e) {
+    console.error(e);
+    return res.status(400).json({ error: { message: "Bad Request" } });
+  }
+}

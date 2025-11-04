@@ -1,12 +1,42 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { Calendar, MapPin, ShoppingCart, X, User, Building2, Users, Mic } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  Calendar,
+  MapPin,
+  ShoppingCart,
+  X,
+  User,
+  Building2,
+  Users,
+  Mic,
+} from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useState } from "react";
 import eventsApi from "./events.api";
 import ticketTypesApi from "@/features/ticketTypes/ticketTypes.api";
@@ -15,18 +45,25 @@ import { queryKeys } from "@/utils/queryKeys";
 import { PATHS } from "@/routes/paths";
 import { formatCurrency } from "@/lib/utils";
 import { useMe } from "@/features/users/useMe";
+import usersApi from "@/features/users/users.api";
 
 // Cart Side Panel Component
-function CartPanel({ ticketTypes, selectedTickets, onQuantityChange, cartTotal, onCheckout, isOpen, onClose, isLoading }) {
+function CartPanel({
+  ticketTypes,
+  selectedTickets,
+  onQuantityChange,
+  cartTotal,
+  onCheckout,
+  isOpen,
+  onClose,
+  isLoading,
+}) {
   if (!isOpen) return null;
 
   return (
     <>
       {/* Overlay */}
-      <div 
-        className="fixed inset-0 bg-black/50 z-40"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
       {/* Side Panel */}
       <div className="fixed right-0 top-0 h-full w-full max-w-md bg-background border-l shadow-xl z-50 overflow-y-auto">
         <div className="p-6 space-y-6">
@@ -43,21 +80,30 @@ function CartPanel({ ticketTypes, selectedTickets, onQuantityChange, cartTotal, 
             <div className="space-y-4">
               {ticketTypes.rows.map((ticketType) => {
                 const selectedQty = selectedTickets[ticketType.id] || 0;
-                const maxQty = ticketType.per_user_limit || ticketType.per_order_limit || 10;
+                const maxQty =
+                  ticketType.per_user_limit || ticketType.per_order_limit || 10;
 
                 return (
-                  <div key={ticketType.id} className="border rounded-lg p-4 space-y-2">
+                  <div
+                    key={ticketType.id}
+                    className="border rounded-lg p-4 space-y-2"
+                  >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <h3 className="font-medium">{ticketType.name}</h3>
                         <p className="text-sm text-muted-foreground">
                           {formatCurrency(ticketType.price_cents / 100)}
                         </p>
-                        {(ticketType.per_user_limit || ticketType.per_order_limit) && (
+                        {(ticketType.per_user_limit ||
+                          ticketType.per_order_limit) && (
                           <p className="text-xs text-muted-foreground mt-1">
-                            {ticketType.per_user_limit && `Max ${ticketType.per_user_limit} per person`}
-                            {ticketType.per_user_limit && ticketType.per_order_limit && " • "}
-                            {ticketType.per_order_limit && `Max ${ticketType.per_order_limit} per order`}
+                            {ticketType.per_user_limit &&
+                              `Max ${ticketType.per_user_limit} per person`}
+                            {ticketType.per_user_limit &&
+                              ticketType.per_order_limit &&
+                              " • "}
+                            {ticketType.per_order_limit &&
+                              `Max ${ticketType.per_order_limit} per order`}
                           </p>
                         )}
                       </div>
@@ -65,7 +111,12 @@ function CartPanel({ ticketTypes, selectedTickets, onQuantityChange, cartTotal, 
                         <Button
                           variant="outline"
                           size="icon"
-                          onClick={() => onQuantityChange(ticketType.id, Math.max(0, selectedQty - 1))}
+                          onClick={() =>
+                            onQuantityChange(
+                              ticketType.id,
+                              Math.max(0, selectedQty - 1)
+                            )
+                          }
                           disabled={selectedQty === 0}
                         >
                           -
@@ -75,13 +126,23 @@ function CartPanel({ ticketTypes, selectedTickets, onQuantityChange, cartTotal, 
                           min="0"
                           max={maxQty}
                           value={selectedQty}
-                          onChange={(e) => onQuantityChange(ticketType.id, parseInt(e.target.value) || 0)}
+                          onChange={(e) =>
+                            onQuantityChange(
+                              ticketType.id,
+                              parseInt(e.target.value) || 0
+                            )
+                          }
                           className="w-16 text-center"
                         />
                         <Button
                           variant="outline"
                           size="icon"
-                          onClick={() => onQuantityChange(ticketType.id, Math.min(maxQty, selectedQty + 1))}
+                          onClick={() =>
+                            onQuantityChange(
+                              ticketType.id,
+                              Math.min(maxQty, selectedQty + 1)
+                            )
+                          }
                           disabled={selectedQty >= maxQty}
                         >
                           +
@@ -144,6 +205,8 @@ export default function EventDetailPage() {
   const [selectedTickets, setSelectedTickets] = useState({});
   const [cartTotal, setCartTotal] = useState(0);
   const [cartOpen, setCartOpen] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editIsVirtual, setEditIsVirtual] = useState(false);
 
   // Fetch event details
   const { data: eventData, isLoading: eventLoading } = useQuery({
@@ -158,6 +221,21 @@ export default function EventDetailPage() {
     queryFn: () => ticketTypesApi.listForEvent(id),
     enabled: !!id && !!user,
   });
+  const { data: userOrgs } = useQuery({
+    queryKey: queryKeys.users.orgs.my(),
+    queryFn: () => usersApi.listMyOrgs(),
+    enabled: !!user,
+  });
+const queryClient = useQueryClient();
+  const updateEventMutation = useMutation({
+    mutationFn: async (data) => {
+      return await eventsApi.update(id, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(queryKeys.events.detail(id));
+      setShowEditDialog(false);
+    },
+  });
 
   // Create order mutation
   const createOrderMutation = useMutation({
@@ -167,14 +245,16 @@ export default function EventDetailPage() {
       const orderId = orderResponse?.order?.id;
 
       if (!orderId) {
-        throw new Error('No order ID returned from server');
+        throw new Error("No order ID returned from server");
       }
 
       // Add items to the order
       const items = Object.entries(selectedTickets)
         .filter(([, qty]) => qty > 0)
         .map(([ticketTypeId, quantity]) => {
-          const ticketType = ticketTypes?.rows?.find((t) => t.id === ticketTypeId);
+          const ticketType = ticketTypes?.rows?.find(
+            (t) => t.id === ticketTypeId
+          );
           return {
             order_id: orderId,
             event_id: id,
@@ -271,10 +351,14 @@ export default function EventDetailPage() {
   const vendors = event.vendors || [];
   const speakers = event.speakers || [];
 
+  const isOrganizer = userOrgs?.rows?.some(
+    (org) => org.id === event.org_id && org.role_name === "ORGANIZER"
+  );
+
   return (
     <div className="max-w-7xl mx-auto space-y-6 relative">
       {/* Cart Panel for logged-in users */}
-      {user && (
+      {user && !isOrganizer && (
         <CartPanel
           ticketTypes={ticketTypes}
           selectedTickets={selectedTickets}
@@ -294,14 +378,16 @@ export default function EventDetailPage() {
             <div className="flex-1">
               <CardTitle className="text-3xl mb-5">{event.title}</CardTitle>
               <div className="flex items-center gap-2 mb-2">
-                <Badge variant={event.status === "PUBLISHED" ? "default" : "outline"}>
+                <Badge
+                  variant={event.status === "PUBLISHED" ? "default" : "outline"}
+                >
                   {event.event_type}
                 </Badge>
                 <Badge variant="outline">{event.status}</Badge>
               </div>
             </div>
             {/* Cart Toggle Button for logged-in users */}
-            {user && (
+            {user && !isOrganizer && (
               <Button
                 variant="outline"
                 onClick={() => setCartOpen(!cartOpen)}
@@ -309,11 +395,22 @@ export default function EventDetailPage() {
               >
                 <ShoppingCart className="size-4 mr-2" />
                 Cart
-                {Object.values(selectedTickets).reduce((sum, qty) => sum + qty, 0) > 0 && (
+                {Object.values(selectedTickets).reduce(
+                  (sum, qty) => sum + qty,
+                  0
+                ) > 0 && (
                   <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground rounded-full size-5 flex items-center justify-center text-xs">
-                    {Object.values(selectedTickets).reduce((sum, qty) => sum + qty, 0)}
+                    {Object.values(selectedTickets).reduce(
+                      (sum, qty) => sum + qty,
+                      0
+                    )}
                   </span>
                 )}
+              </Button>
+            )}
+            {user && isOrganizer && (
+              <Button variant="outline" onClick={() => setShowEditDialog(true)}>
+                Edit Event
               </Button>
             )}
           </div>
@@ -324,7 +421,9 @@ export default function EventDetailPage() {
             <div className="flex items-center gap-2">
               <Building2 className="size-5 text-muted-foreground" />
               <div>
-                <span className="text-sm text-muted-foreground">Organizer:</span>{" "}
+                <span className="text-sm text-muted-foreground">
+                  Organizer:
+                </span>{" "}
                 <span className="font-medium">{event.org_name}</span>
               </div>
             </div>
@@ -448,10 +547,14 @@ export default function EventDetailPage() {
                         <div className="flex-1">
                           <div className="font-medium">{vendor.name}</div>
                           {vendor.email && (
-                            <div className="text-sm text-muted-foreground">{vendor.email}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {vendor.email}
+                            </div>
                           )}
                           {vendor.phone && (
-                            <div className="text-sm text-muted-foreground">{vendor.phone}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {vendor.phone}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -463,7 +566,7 @@ export default function EventDetailPage() {
           )}
 
           {/* Book Tickets Button (Public View - Not Logged In) */}
-          {!user && (
+          {!user && !isOrganizer && (
             <div className="pt-4 border-t">
               <Button
                 onClick={() => navigate(PATHS.login)}
@@ -477,6 +580,232 @@ export default function EventDetailPage() {
           )}
         </CardContent>
       </Card>
+      {/* Edit Dialog for Organizers */}
+      {user && isOrganizer && (
+        <Dialog open={showEditDialog} onOpenChange={(open) => {
+          setShowEditDialog(open);
+          if (open) {
+            setEditIsVirtual(event.is_online || false);
+          }
+        }}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Event</DialogTitle>
+            </DialogHeader>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                updateEventMutation.mutate({
+                  title: formData.get("title"),
+                  slug: formData.get("slug"),
+                  summary: formData.get("summary"),
+                  description_md: formData.get("description"),
+                  event_type: formData.get("event_type"),
+                  visibility: formData.get("visibility"),
+                  status: formData.get("status"),
+                  start_at: formData.get("start_at"),
+                  end_at: formData.get("end_at"),
+                  is_online: editIsVirtual,
+                  stream_url: editIsVirtual ? formData.get("stream_url") : null,
+                  cover_image_url: formData.get("cover_image_url"),
+                });
+              }}
+              className="space-y-6"
+            >
+              {/* Basic Info */}
+              <div className="space-y-4 border-b pb-4">
+                <h3 className="font-semibold text-lg">Basic Information</h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-title">Event Title *</Label>
+                    <Input
+                      id="edit-title"
+                      name="title"
+                      defaultValue={event.title}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-event_type">Event Type *</Label>
+                    <Select name="event_type" defaultValue={event.event_type}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="CONFERENCE">Conference</SelectItem>
+                        <SelectItem value="MEETUP">Meetup</SelectItem>
+                        <SelectItem value="WORKSHOP">Workshop</SelectItem>
+                        <SelectItem value="WEBINAR">Webinar</SelectItem>
+                        <SelectItem value="LIVE">Live Event</SelectItem>
+                        <SelectItem value="PERFORMANCE">Performance</SelectItem>
+                        <SelectItem value="OTHER">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-slug">URL Slug *</Label>
+                    <Input
+                      id="edit-slug"
+                      name="slug"
+                      defaultValue={event.slug}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-visibility">Visibility *</Label>
+                    <Select name="visibility" defaultValue={event.visibility}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PUBLIC">Public</SelectItem>
+                        <SelectItem value="UNLISTED">Unlisted</SelectItem>
+                        <SelectItem value="PRIVATE">Private</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-status">Status *</Label>
+                  <Select name="status" defaultValue={event.status}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DRAFT">Draft</SelectItem>
+                      <SelectItem value="PUBLISHED">Published</SelectItem>
+                      <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                      <SelectItem value="COMPLETED">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-summary">Summary</Label>
+                  <Input
+                    id="edit-summary"
+                    name="summary"
+                    defaultValue={event.summary}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-description">Full Description</Label>
+                  <Textarea
+                    id="edit-description"
+                    name="description"
+                    defaultValue={event.description_md}
+                    rows={4}
+                  />
+                </div>
+              </div>
+
+              {/* Date & Time */}
+              <div className="space-y-4 border-b pb-4">
+                <h3 className="font-semibold text-lg">Date & Time</h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-start">Start Date/Time *</Label>
+                    <Input
+                      id="edit-start"
+                      name="start_at"
+                      type="datetime-local"
+                      defaultValue={event.start_at?.slice(0, 16)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-end">End Date/Time *</Label>
+                    <Input
+                      id="edit-end"
+                      name="end_at"
+                      type="datetime-local"
+                      defaultValue={event.end_at?.slice(0, 16)}
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Venue & Location */}
+              <div className="space-y-4 border-b pb-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-lg">Venue & Location</h3>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editIsVirtual}
+                      onChange={(e) => setEditIsVirtual(e.target.checked)}
+                      className="size-4"
+                    />
+                    <span className="text-sm font-medium">Virtual Event</span>
+                  </label>
+                </div>
+
+                {editIsVirtual ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-stream_url">Stream URL *</Label>
+                    <Input
+                      id="edit-stream_url"
+                      name="stream_url"
+                      type="url"
+                      defaultValue={event.stream_url}
+                      placeholder="https://zoom.us/j/123456789"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Enter your Zoom, YouTube Live, or other streaming platform URL
+                    </p>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">
+                    Venue: {event.venue_name || "Not set"}
+                    <p className="mt-1">
+                      Venue changes must be done through the organizer dashboard
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Additional Details */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg">Additional Details</h3>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-cover_image_url">Cover Image URL</Label>
+                  <Input
+                    id="edit-cover_image_url"
+                    name="cover_image_url"
+                    type="url"
+                    defaultValue={event.cover_image_url}
+                    placeholder="https://example.com/image.jpg"
+                  />
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowEditDialog(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={updateEventMutation.isPending}>
+                  {updateEventMutation.isPending ? (
+                    <>
+                      <Spinner className="mr-2" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save Changes"
+                  )}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

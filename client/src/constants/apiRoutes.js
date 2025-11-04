@@ -30,6 +30,7 @@ export const API_ROUTES = {
     listOrgMembers: (orgId) => `/api/users/orgs/${orgId}/members`,
     upsertOrgMember: (orgId) => `/api/users/orgs/${orgId}/members`,
     removeOrgMember: (orgId) => `/api/users/orgs/${orgId}/members`,
+    listOrgVenues: (orgId) => `/api/users/orgs/${orgId}/venues`, 
   },
 
   // ───────────────────────── Events ─────────────────────────

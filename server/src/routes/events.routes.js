@@ -10,6 +10,7 @@ r.patch("/:id", requireAuth, c.update);
 r.post("/:id/publish", requireAuth, c.publish);
 r.post("/:id/cancel", requireAuth, c.cancel);
 
+
 r.get("/org/:orgId", requireAuth, c.listForOrg);
 r.get("/public/search", c.searchPublic);
 r.get("/public/upcoming", c.upcomingPublic);

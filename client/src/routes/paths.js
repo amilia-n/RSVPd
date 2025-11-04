@@ -17,6 +17,7 @@ export const PATHS = {
   // resources
   events: "/events",
   eventDetail: (id) => `/events/${id}`,
+  eventEdit: (id) => `/events/${id}/edit`,
   ticketTypes: (eventId) => `/events/${eventId}/ticket-types`,
   orders: "/orders",
   orderDetail: (id) => `/orders/${id}`,

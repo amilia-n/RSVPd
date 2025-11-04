@@ -112,7 +112,10 @@ export const queries = {
   getVenueById:     `SELECT * FROM venues WHERE id=$1`,
   listVenuesByOrg:  `SELECT * FROM venues WHERE org_id=$1 ORDER BY name`,
   deleteVenue:      `DELETE FROM venues WHERE id=$1 RETURNING id`,
-
+  listVenuesForOrg: `
+    SELECT * FROM venues 
+    WHERE org_id=$1 
+    ORDER BY name`,
 
   // ═══════════════════════════════════════════════════════════════
   // EVENTS

@@ -101,3 +101,8 @@ export async function listOrgsForUser(userId) {
   const { rows } = await pool.query(queries.listOrgsForUser, [userId]);
   return rows;
 }
+
+export async function listVenuesForOrg(orgId) {
+  const { rows } = await pool.query(queries.listVenuesForOrg, [orgId]);
+  return rows;
+}

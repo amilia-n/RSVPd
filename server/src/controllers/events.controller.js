@@ -1,12 +1,98 @@
 import * as events from "../services/event.service.js";
+import pool from "../db/pool.js";
 
 export async function create(req, res) {
   try {
-    const row = await events.createEvent(req.body ?? {});
-    return res.status(201).json({ event: row });
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const {
+        org_id, venue, title, slug, summary, description_md,
+        status, visibility, event_type, capacity,
+        start_at, end_at, is_online, stream_url, cover_image_url, tags,
+        ticket_types, speaker_ids, vendor_ids
+      } = req.body;
+
+      // 1. Create or get venue
+      let venue_id = null;
+      if (venue && venue.name) {
+        const venueResult = await client.query(
+          `INSERT INTO venues (org_id, name, address1, address2, city, state_code, postal_code, capacity)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           RETURNING id`,
+          [org_id, venue.name, venue.address1, venue.address2, venue.city, venue.state_code, venue.postal_code, venue.capacity]
+        );
+        venue_id = venueResult.rows[0].id;
+      }
+
+      // 2. Create event
+      const eventResult = await client.query(
+        `INSERT INTO events (
+          org_id, venue_id, title, slug, summary, description_md,
+          status, visibility, event_type, capacity,
+          start_at, end_at, is_online, stream_url, cover_image_url, tags
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        RETURNING *`,
+        [
+          org_id, venue_id, title, slug, summary, description_md,
+          status, visibility, event_type, capacity,
+          start_at, end_at, is_online, stream_url, cover_image_url, tags || []
+        ]
+      );
+
+      const event = eventResult.rows[0];
+
+      // 3. Create ticket types
+      if (ticket_types && Array.isArray(ticket_types)) {
+        for (const tt of ticket_types) {
+          await client.query(
+            `INSERT INTO ticket_types (
+              event_id, name, kind, price_cents, quantity_total, is_active
+            )
+            VALUES ($1, $2, $3, $4, $5, true)`,
+            [
+              event.id,
+              tt.name,
+              tt.kind || 'GENERAL',
+              Math.round((tt.price || 0) * 100), // Convert dollars to cents
+              tt.quantity || 100
+            ]
+          );
+        }
+      }
+
+      // 4. Link speakers (create sessions for each)
+      if (speaker_ids && Array.isArray(speaker_ids) && speaker_ids.length > 0) {
+        for (const speaker_id of speaker_ids) {
+          // Create a session
+          const sessionResult = await client.query(
+            `INSERT INTO sessions (event_id, title, starts_at, ends_at)
+             VALUES ($1, $2, $3, $4)
+             RETURNING id`,
+            [event.id, 'Speaker Session', start_at, end_at]
+          );
+          // Link speaker to session
+          await client.query(
+            `INSERT INTO session_speakers (session_id, speaker_id)
+             VALUES ($1, $2)`,
+            [sessionResult.rows[0].id, speaker_id]
+          );
+        }
+      }
+
+      await client.query('COMMIT');
+      return res.status(201).json({ event });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   } catch (e) {
     console.error(e);
-    return res.status(400).json({ error: { message: "Bad Request" } });
+    return res.status(400).json({ error: { message: e.message || "Bad Request" } });
   }
 }
 

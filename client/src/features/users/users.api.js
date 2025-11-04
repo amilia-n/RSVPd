@@ -56,6 +56,8 @@ export const usersApi = {
 
   removeOrgMember: (orgId, data) =>
     apiClient({ method: 'DELETE', url: API_ROUTES.users.removeOrgMember(orgId), data }),
+  listOrgVenues: (orgId) =>
+    apiClient({ method: 'GET', url: API_ROUTES.users.listOrgVenues(orgId) }),
 };
 
 export default usersApi;
