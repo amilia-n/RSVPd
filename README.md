@@ -2,6 +2,9 @@
 
 A comprehensive full-stack event management system that enables event organizers to create, manage, and promote events while allowing attendees to discover, register for, and participate in events. The platform handles complex event logistics including ticketing, payments, check-ins, and real-time notifications.
 
+## See the deployed app here:
+https://rsvpd.onrender.com/
+
 ## Table of Contents
 
 - [Overview](#overview)
