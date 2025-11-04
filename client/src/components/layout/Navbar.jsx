@@ -48,7 +48,7 @@ export default function Navbar() {
           <div className="flex items-center gap-4">
             <Link to={PATHS.home} className="flex items-center gap-2">
               <img src="/icon.png" alt="RSVP" className="size-6" />
-              <span className="font-bold text-lg">RSVP</span>
+              <span className="font-bold text-lg">RSVPd</span>
             </Link>
 
             {user && (
