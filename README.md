@@ -37,6 +37,76 @@ The system supports four primary user roles:
 - **Vendor**: Check-in operations and event participation
 - **Attendee**: Event discovery, ticket purchase, and attendance
 
+## Screenshots
+
+### User Experience Flow
+
+#### Authentication
+<div align="center">
+  <img src="client/src/assets/login.png" alt="Login Page" width="45%">
+  <img src="client/src/assets/createAccount.png" alt="Create Account" width="45%">
+</div>
+
+*Login and account creation for new and returning users*
+
+---
+
+#### Event Discovery & Registration
+
+<div align="center">
+  <img src="client/src/assets/BrowseEvents.png" alt="Browse Events" width="80%">
+</div>
+
+*Browse and search for public events with detailed filtering*
+
+<div align="center">
+  <img src="client/src/assets/Add to Cart.png" alt="Add to Cart" width="80%">
+</div>
+
+*Select ticket types and add to cart with real-time availability*
+
+---
+
+#### Checkout & Payment
+
+<div align="center">
+  <img src="client/src/assets/CheckoutPage.png" alt="Checkout Page" width="45%">
+  <img src="client/src/assets/SecureStripCheckout.png" alt="Secure Stripe Checkout" width="45%">
+</div>
+
+*Secure checkout process with Stripe payment integration*
+
+<div align="center">
+  <img src="client/src/assets/NewGuestLogin.png" alt="Guest Login" width="80%">
+</div>
+
+*Guest checkout option for quick ticket purchases*
+
+---
+
+#### Organizer Dashboard & Management
+
+<div align="center">
+  <img src="client/src/assets/OrganizerDash.png" alt="Organizer Dashboard" width="80%">
+</div>
+
+*Comprehensive organizer dashboard with event analytics and management tools*
+
+<div align="center">
+  <img src="client/src/assets/CreateNewEvent1.png" alt="Create Event - Part 1" width="45%">
+  <img src="client/src/assets/CreateNewEvent2.png" alt="Create Event - Part 2" width="45%">
+</div>
+
+*Intuitive event creation flow with detailed configuration options*
+
+<div align="center">
+  <img src="client/src/assets/SurveyAnalytics.png" alt="Survey Analytics" width="80%">
+</div>
+
+*Post-event survey analytics with detailed response breakdowns and insights*
+
+---
+
 ## Features
 
 ### Core Features

@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";  // ← Removed BrowserRouter
+import { Routes, Route } from "react-router-dom";  
 import Shell from "@/components/layout/Shell";
 import RoleRedirect from "@/routes/RoleRedirect";
 import ProtectedRoute from "@/routes/ProtectedRoute";
@@ -67,8 +67,10 @@ export default function App() {
         </Route>
 
         {/* Surveys */}
-        <Route path="/surveys/:surveyId/respond" element={<ProtectedRoute><SurveyResponsePage /></ProtectedRoute>} />
-        <Route path="/surveys/:surveyId/results" element={<ProtectedRoute><SurveyResultsPage /></ProtectedRoute>} />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/surveys/:surveyId/respond" element={<SurveyResponsePage />} />
+          <Route path="/surveys/:surveyId/results" element={<SurveyResultsPage />} />
+        </Route>
       </Routes>
     </Shell>
   );
