@@ -65,7 +65,7 @@ function CartPanel({
       {/* Overlay */}
       <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
       {/* Side Panel */}
-      <div className="fixed right-0 top-0 h-full w-full max-w-md bg-background border-l shadow-xl z-50 overflow-y-auto">
+      <div className="fixed right-0 top-0 h-full w-full max-w-md bg-white border-l shadow-xl z-50 overflow-y-auto">
         <div className="p-6 space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between">
