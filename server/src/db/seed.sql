@@ -17,9 +17,9 @@ INSERT INTO venues (org_id, name, address1, city, state_code, postal_code, count
 VALUES
   ((SELECT id FROM o WHERE slug='org-one'),   'Hudson Hall',             '123 Riverside Dr',     'New York',     'NY', '10027', 'US',     80),
   ((SELECT id FROM o WHERE slug='org-one'),   'Brooklyn Workshop Loft',  '44 Kingsland Ave',     'Brooklyn',     'NY', '11211', 'US',     20),
-  ((SELECT id FROM o WHERE slug='org-two'),   'Downtown Convention Ctr', '500 Market St',        'Philadelphia', 'PA', '19106', 'US',    200),
+  ((SELECT id FROM o WHERE slug='org-one'),   'Downtown Convention Ctr', '500 Market St',        'Philadelphia', 'PA', '19106', 'US',    200),
   ((SELECT id FROM o WHERE slug='org-two'),   'Innovation Hub',          '700 Liberty Ave',      'Pittsburgh',   'PA', '15222', 'US',     60),
-  ((SELECT id FROM o WHERE slug='org-three'), 'Mission Theater',         '240 Valencia St',      'San Francisco','CA', '94103', 'US',  90)
+  ((SELECT id FROM o WHERE slug='org-one'), 'Mission Theater',         '240 Valencia St',      'San Francisco','CA', '94103', 'US',  90)
 ON CONFLICT DO NOTHING;
 
 -- ─────────────────────────────────────────────
@@ -30,9 +30,9 @@ INSERT INTO speakers (org_id, full_name, title, company, bio_md, headshot_url)
 VALUES
   ((SELECT id FROM o WHERE slug='org-one'),   'Jamal Ortega', 'Staff Engineer',      'Astera',   'Distributed systems nerd.',      'https://picsum.photos/seed/jamal/200/200'),
   ((SELECT id FROM o WHERE slug='org-one'),   'Mina Patel',   'Frontend Lead',       'Nimbus',   'Accessibility + DX advocate.',   'https://picsum.photos/seed/mina/200/200'),
-  ((SELECT id FROM o WHERE slug='org-two'),   'Eric Sung',    'Principal Scientist', 'Quantica', 'Time series & forecasting.',     'https://picsum.photos/seed/eric/200/200'),
+  ((SELECT id FROM o WHERE slug='org-one'),   'Eric Sung',    'Principal Scientist', 'Quantica', 'Time series & forecasting.',     'https://picsum.photos/seed/eric/200/200'),
   ((SELECT id FROM o WHERE slug='org-two'),   'Hyejin Park',  'CTO',                 'ArcWorks', 'LLM systems in production.',     'https://picsum.photos/seed/hyejin/200/200'),
-  ((SELECT id FROM o WHERE slug='org-three'), 'Sophie Nguyen','Head of Product',     'Kitewave', 'Product strategy & growth.',     'https://picsum.photos/seed/sophie/200/200')
+  ((SELECT id FROM o WHERE slug='org-one'), 'Sophie Nguyen','Head of Product',     'Kitewave', 'Product strategy & growth.',     'https://picsum.photos/seed/sophie/200/200')
 ON CONFLICT DO NOTHING;
 
 -- ─────────────────────────────────────────────
@@ -64,7 +64,7 @@ VALUES
     FALSE, NULL, 'https://picsum.photos/seed/holidayjs/800/400', ARRAY['javascript','workshop','hands-on']),
 
   -- org-two
-  ((SELECT id FROM orgs WHERE slug='org-two'), (SELECT id FROM v WHERE name='Downtown Convention Ctr'),
+  ((SELECT id FROM orgs WHERE slug='org-one'), (SELECT id FROM v WHERE name='Downtown Convention Ctr'),
     'Data Science Summit', 'ds-summit-2025-12',
     'Talks, tutorials, and expo.', 'ML • MLOps • Analytics',
     'PUBLISHED','PUBLIC','CONFERENCE', 200,
@@ -80,8 +80,8 @@ VALUES
     TIMESTAMPTZ '2025-12-01 09:00:00-05', TIMESTAMPTZ '2026-02-05 13:00:00-05',
     FALSE, NULL, 'https://picsum.photos/seed/aidemo/800/400', ARRAY['startups','ai','demo']),
 
-  -- org-three (PAST)
-  ((SELECT id FROM orgs WHERE slug='org-three'), (SELECT id FROM v WHERE name='Mission Theater'),
+  -- org-one (PAST)
+  ((SELECT id FROM orgs WHERE slug='org-one'), (SELECT id FROM v WHERE name='Mission Theater'),
     'Fall Retrospective 2025', 'fall-retro-2025-09',
     'Panel + mixer looking back at the year.', 'Reflection • Trends • Community',
     'COMPLETED','PUBLIC','MEETUP', 90, 

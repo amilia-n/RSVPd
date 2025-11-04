@@ -454,8 +454,8 @@ async function seedPastEventCheckins(c) {
   const event = await getEvent(c, "fall-retro-2025-09");
   if (!event) return;
 
-  // choose organizer of org-three as scanner
-  const scannerEmail = "gina@org3.local";
+  // choose organizer of org-one as scanner
+  const scannerEmail = "olivia@org1.local";
   const scannerId = await getUserIdByEmail(c, scannerEmail);
 
   // tickets for past event (if not already present)
