@@ -62,6 +62,7 @@ export default function LoginPage() {
                 type="email"
                 required
                 value={formData.email}
+                className="placeholder:text-muted-foreground/60 focus:placeholder:text-transparent"
                 onChange={(e) =>
                   setFormData({ ...formData, email: e.target.value })
                 }
@@ -75,6 +76,7 @@ export default function LoginPage() {
                 id="password"
                 type="password"
                 required
+                className="placeholder:text-muted-foreground/60 focus:placeholder:text-transparent"
                 value={formData.password}
                 onChange={(e) =>
                   setFormData({ ...formData, password: e.target.value })
