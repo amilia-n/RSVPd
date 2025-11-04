@@ -84,6 +84,30 @@ The system supports four primary user roles:
 
 ---
 
+#### Order Confirmation & Tickets
+
+<div align="center">
+  <img src="client/src/assets/OrderConfirmation.png" alt="Order Confirmation" width="45%">
+  <img src="client/src/assets/PostOrderInfo.png" alt="Order Details" width="45%">
+</div>
+
+*Instant order confirmation with detailed order information*
+
+<div align="center">
+  <img src="client/src/assets/MyTickets.png" alt="My Tickets" width="80%">
+</div>
+
+*Centralized ticket management dashboard for attendees*
+
+<div align="center">
+  <img src="client/src/assets/QRtix1.png" alt="QR Code Ticket - Part 1" width="45%">
+  <img src="client/src/assets/QRtix2.png" alt="QR Code Ticket - Part 2" width="45%">
+</div>
+
+*Digital tickets with QR codes for seamless event check-in*
+
+---
+
 #### Organizer Dashboard & Management
 
 <div align="center">
