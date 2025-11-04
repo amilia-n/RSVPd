@@ -15,11 +15,13 @@ export default function TicketDetailPage() {
   const { id } = useParams();
 
   // Fetch ticket details
-  const { data: ticket, isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: queryKeys.tickets.detail(id),
     queryFn: () => ticketsApi.getById(id),
     enabled: !!id,
   });
+
+  const ticket = data?.ticket;
 
   if (isLoading) {
     return (
