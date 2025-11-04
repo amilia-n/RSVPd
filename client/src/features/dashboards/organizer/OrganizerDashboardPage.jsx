@@ -1,7 +1,15 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Calendar, Ticket, TrendingUp, Eye, Plus, X } from "lucide-react";
+import {
+  Calendar,
+  Ticket,
+  TrendingUp,
+  Eye,
+  Plus,
+  X,
+  FileText,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +18,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import surveysApi from "@/features/surveys/surveys.api";
 import {
   Select,
   SelectContent,
@@ -94,8 +103,12 @@ export default function OrganizerDashboardPage() {
   ]);
   const [tags, setTags] = useState([]);
   const [currentTag, setCurrentTag] = useState("");
+  const [showSurveyDialog, setShowSurveyDialog] = useState(false);
+  const [selectedEventForSurvey, setSelectedEventForSurvey] = useState(null);
+  const [surveyQuestions, setSurveyQuestions] = useState([
+    { question_text: "" },
+  ]);
 
-  // Fetch user's organizations
   const { data: orgs, isLoading: orgsLoading } = useQuery({
     queryKey: queryKeys.users.orgs.my(),
     queryFn: () => usersApi.listMyOrgs(),
@@ -103,7 +116,12 @@ export default function OrganizerDashboardPage() {
 
   const firstOrgId = orgs?.rows?.[0]?.id;
 
-  // Fetch org members (vendors)
+  const { data: surveys } = useQuery({
+    queryKey: ["surveys", firstOrgId],
+    queryFn: () => surveysApi.listForOrg(firstOrgId),
+    enabled: !!firstOrgId,
+  });
+
   const { data: members } = useQuery({
     queryKey: ["orgMembers", firstOrgId],
     queryFn: () => usersApi.listOrgMembers(firstOrgId),
@@ -139,6 +157,24 @@ export default function OrganizerDashboardPage() {
     },
   });
 
+  // Create survey mutation
+  const createSurveyMutation = useMutation({
+    mutationFn: (data) => surveysApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["surveys"] });
+      setShowSurveyDialog(false);
+      setSurveyQuestions([{ question_text: "" }]);
+      setSelectedEventForSurvey(null);
+    },
+  });
+
+  // Send survey mutation
+  const sendSurveyMutation = useMutation({
+    mutationFn: (survey_id) => surveysApi.send({ survey_id }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["surveys"] });
+    },
+  });
   const handleCreateEvent = (e) => {
     e.preventDefault();
 
@@ -221,7 +257,58 @@ export default function OrganizerDashboardPage() {
   const removeTag = (tag) => {
     setTags(tags.filter((t) => t !== tag));
   };
+  const handleCreateSurvey = (e) => {
+    e.preventDefault();
 
+    if (!firstOrgId || !selectedEventForSurvey) {
+      alert("No organization or event selected");
+      return;
+    }
+
+    const formData = new FormData(e.target);
+
+    // Filter out empty questions and limit to 5
+    const validQuestions = surveyQuestions
+      .filter((q) => q.question_text.trim() !== "")
+      .slice(0, 5);
+
+    if (validQuestions.length === 0) {
+      alert("Please add at least one question");
+      return;
+    }
+
+    createSurveyMutation.mutate({
+      org_id: firstOrgId,
+      event_id: selectedEventForSurvey,
+      title: formData.get("title"),
+      description_md: formData.get("description") || null,
+      questions: validQuestions,
+    });
+  };
+
+  const addSurveyQuestion = () => {
+    if (surveyQuestions.length < 5) {
+      setSurveyQuestions([...surveyQuestions, { question_text: "" }]);
+    }
+  };
+
+  const removeSurveyQuestion = (index) => {
+    setSurveyQuestions(surveyQuestions.filter((_, i) => i !== index));
+  };
+
+  const updateSurveyQuestion = (index, value) => {
+    const updated = [...surveyQuestions];
+    updated[index].question_text = value;
+    setSurveyQuestions(updated);
+  };
+
+  const handleSendSurvey = (surveyId) => {
+    if (
+      confirm("Are you sure you want to send this survey to all attendees?")
+    ) {
+      sendSurveyMutation.mutate(surveyId);
+    }
+  };
   // Calculate stats
   const totalEvents = events?.rows?.length || 0;
   const publishedEvents =
@@ -309,32 +396,31 @@ export default function OrganizerDashboardPage() {
                       </Select>
                     </div>
                   </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="slug">URL Slug *</Label>
-                        <Input
-                          id="slug"
-                          name="slug"
-                          required
-                          placeholder="tech-conference-2025"
-                          className="placeholder:text-muted-foreground/60 focus:placeholder:text-transparent"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="visibility">Visibility *</Label>
-                        <Select name="visibility" defaultValue="PRIVATE">
-                          <SelectTrigger className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="PUBLIC">Public</SelectItem>
-                            <SelectItem value="UNLISTED">Unlisted</SelectItem>
-                            <SelectItem value="PRIVATE">Private</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="slug">URL Slug *</Label>
+                      <Input
+                        id="slug"
+                        name="slug"
+                        required
+                        placeholder="tech-conference-2025"
+                        className="placeholder:text-muted-foreground/60 focus:placeholder:text-transparent"
+                      />
                     </div>
-
+                    <div className="space-y-2">
+                      <Label htmlFor="visibility">Visibility *</Label>
+                      <Select name="visibility" defaultValue="PRIVATE">
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="PUBLIC">Public</SelectItem>
+                          <SelectItem value="UNLISTED">Unlisted</SelectItem>
+                          <SelectItem value="PRIVATE">Private</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="summary">Summary</Label>
@@ -841,6 +927,183 @@ export default function OrganizerDashboardPage() {
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <p>No events yet. Create your first event!</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      {/* Survey Results Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Post-Event Surveys</CardTitle>
+            <Dialog open={showSurveyDialog} onOpenChange={setShowSurveyDialog}>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <FileText className="size-4 mr-2" />
+                  Create Survey
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Create Post-Event Survey</DialogTitle>
+                  <DialogDescription>
+                    Create a survey with up to 5 questions (1-5 rating scale)
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleCreateSurvey} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="survey_event">Select Event *</Label>
+                    <Select
+                      value={selectedEventForSurvey || ""}
+                      onValueChange={setSelectedEventForSurvey}
+                      required
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose an event..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {events?.rows?.map((event) => (
+                          <SelectItem key={event.id} value={event.id}>
+                            {event.title} (
+                            {new Date(event.start_at).toLocaleDateString()})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="title">Survey Title *</Label>
+                    <Input
+                      id="title"
+                      name="title"
+                      required
+                      placeholder="Post-Event Feedback"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea
+                      id="description"
+                      name="description"
+                      rows={2}
+                      placeholder="Please share your thoughts about the event..."
+                    />
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label>
+                        Questions (1-5 rating: Strongly Disagree to Strongly
+                        Agree)
+                      </Label>
+                      {surveyQuestions.length < 5 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={addSurveyQuestion}
+                        >
+                          <Plus className="size-4 mr-1" /> Add Question
+                        </Button>
+                      )}
+                    </div>
+                    {surveyQuestions.map((q, index) => (
+                      <div key={index} className="flex gap-2">
+                        <Input
+                          value={q.question_text}
+                          onChange={(e) =>
+                            updateSurveyQuestion(index, e.target.value)
+                          }
+                          placeholder={`Question ${index + 1}`}
+                          required
+                        />
+                        {surveyQuestions.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeSurveyQuestion(index)}
+                          >
+                            <X className="size-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowSurveyDialog(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={createSurveyMutation.isPending}
+                    >
+                      {createSurveyMutation.isPending ? (
+                        <>
+                          <Spinner className="mr-2" />
+                          Creating...
+                        </>
+                      ) : (
+                        "Create Survey"
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {surveys?.rows && surveys.rows.length > 0 ? (
+            <div className="space-y-4">
+              {surveys.rows.map((survey) => (
+                <div
+                  key={survey.id}
+                  className="p-4 border rounded-lg hover:bg-accent transition-colors"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-semibold">{survey.title}</h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Event: {survey.event_title}
+                      </p>
+                      {survey.sent_at && (
+                        <Badge variant="secondary" className="mt-2">
+                          Sent: {new Date(survey.sent_at).toLocaleDateString()}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      {!survey.sent_at && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleSendSurvey(survey.id)}
+                          disabled={sendSurveyMutation.isPending}
+                        >
+                          Send Survey
+                        </Button>
+                      )}
+                      <Link to={`/surveys/${survey.id}/results`}>
+                        <Button size="sm" variant="outline">
+                          View Results
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <FileText className="size-12 mx-auto mb-2 opacity-50" />
+              <p>No surveys yet. Create one to gather post-event feedback!</p>
             </div>
           )}
         </CardContent>

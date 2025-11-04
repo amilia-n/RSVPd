@@ -24,6 +24,8 @@ import TicketDetailPage from "@/features/tickets/TicketDetailPage";
 import MyTicketsPage from "@/features/tickets/MyTicketsPage";
 import LoginPage from "@/features/auth/LoginPage";
 import RegisterPage from "@/features/auth/RegisterPage";
+import SurveyResponsePage from "@/features/surveys/SurveyResponsePage";
+import SurveyResultsPage from "@/features/surveys/SurveyResultsPage";
 
 export default function App() {
   return (
@@ -63,6 +65,10 @@ export default function App() {
           <Route path="/tickets/:id" element={<TicketDetailPage />} />
           <Route path="/orders/:id" element={<OrderDetailPage />} />
         </Route>
+
+        {/* Surveys */}
+        <Route path="/surveys/:surveyId/respond" element={<ProtectedRoute><SurveyResponsePage /></ProtectedRoute>} />
+        <Route path="/surveys/:surveyId/results" element={<ProtectedRoute><SurveyResultsPage /></ProtectedRoute>} />
       </Routes>
     </Shell>
   );

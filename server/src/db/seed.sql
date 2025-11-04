@@ -138,4 +138,47 @@ SELECT e.org_id, e.id, 'EARLY BIRD', 20, NULL, 'USD', NULL, NULL, e.sales_start_
 FROM events e
 ON CONFLICT DO NOTHING;
 
+-- ─────────────────────────────────────────────
+-- 7) POST-EVENT SURVEYS
+-- ─────────────────────────────────────────────
+
+WITH past_event AS (
+  SELECT e.id AS event_id, e.org_id
+  FROM events e
+  WHERE e.slug = 'fall-retro-2025-09'
+  LIMIT 1
+)
+INSERT INTO surveys (event_id, org_id, title, description_md, created_by, is_published, sent_at, created_at)
+SELECT 
+  event_id,
+  org_id,
+  'Fall Retrospective 2025 Feedback Survey',
+  'Thank you for attending! Please share your thoughts about the event.',
+  NULL,  
+  TRUE, 
+  TIMESTAMPTZ '2025-09-16 10:00:00-07', 
+  TIMESTAMPTZ '2025-09-16 09:00:00-07'  
+FROM past_event
+ON CONFLICT DO NOTHING;
+
+-- Add 5 survey questions (1-5 Likert scale)
+WITH survey_ref AS (
+  SELECT s.id AS survey_id
+  FROM surveys s
+  JOIN events e ON e.id = s.event_id
+  WHERE e.slug = 'fall-retro-2025-09'
+  LIMIT 1
+)
+INSERT INTO survey_questions (survey_id, question_text, question_order)
+SELECT survey_id, q.text, q.ord
+FROM survey_ref
+CROSS JOIN (VALUES
+  ('The event was well-organized and ran smoothly.', 1),
+  ('The speakers and content were engaging and valuable.', 2),
+  ('The venue was comfortable and suitable for the event.', 3),
+  ('I would recommend this event to colleagues.', 4),
+  ('I would attend future events from this organization.', 5)
+) AS q(text, ord)
+ON CONFLICT DO NOTHING;
+
 COMMIT;

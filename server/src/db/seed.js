@@ -225,17 +225,157 @@ async function checkIn(c, { ticketId, eventId, scannerUserId, atMinutes, eventSt
   );
 }
 
-async function leaveFeedback(c, { eventId, ticketId, userId, rating, comment, eventEnd, daysAfter=1 }) {
-  const ts = new Date(new Date(eventEnd).getTime() + daysAfter * 24 * 60 * 60 * 1000 + 10 * 60 * 60 * 1000);
-  await q(
+async function seedSurveyResponses(c) {
+  const survey = await one(
     c,
-    `INSERT INTO event_feedback (event_id, ticket_id, user_id, rating, comments_md, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6)
-     ON CONFLICT DO NOTHING`,
-    [eventId, ticketId, userId, rating, comment, ts.toISOString()]
+    `SELECT s.*, e.id AS event_id
+     FROM surveys s
+     JOIN events e ON e.id = s.event_id
+     WHERE e.slug = 'fall-retro-2025-09'
+     LIMIT 1`,
+    []
   );
+  
+  if (!survey) {
+    console.log("  → No survey found , skipping responses");
+    return;
+  }
+
+  console.log(`  → Found survey: "${survey.title}"`);
+
+  const { rows: questions } = await q(
+    c,
+    `SELECT id, question_text, question_order
+     FROM survey_questions
+     WHERE survey_id = $1
+     ORDER BY question_order`,
+    [survey.id]
+  );
+
+  if (questions.length === 0) {
+    console.log("  → No questions found, skipping responses");
+    return;
+  }
+
+  console.log(`  → Found ${questions.length} questions`);
+
+  const { rows: tickets } = await q(
+    c,
+    `SELECT DISTINCT
+       t.id AS ticket_id,
+       o.purchaser_user_id AS user_id,
+       o.purchaser_email
+     FROM tickets t
+     JOIN orders o ON o.id = t.order_id
+     WHERE t.event_id = $1 
+       AND t.status = 'ACTIVE'
+       AND o.purchaser_user_id IS NOT NULL
+     ORDER BY o.purchaser_email`,
+    [survey.event_id]
+  );
+
+  console.log(`  → Found ${tickets.length} potential respondents`);
+
+  const responseRate = 0.8;
+  const respondentCount = Math.floor(tickets.length * responseRate);
+  
+  let submittedCount = 0;
+  let draftCount = 0;
+
+  for (let i = 0; i < tickets.length; i++) {
+    const ticket = tickets[i];
+    const willRespond = i < respondentCount;
+    
+    if (!willRespond) {
+      await q(
+        c,
+        `INSERT INTO survey_recipients (survey_id, user_id, ticket_id, status, created_at)
+         VALUES ($1, $2, $3, 'PENDING', $4)
+         ON CONFLICT (survey_id, user_id) DO NOTHING`,
+        [
+          survey.id,
+          ticket.user_id,
+          ticket.ticket_id,
+          new Date(survey.sent_at).toISOString()
+        ]
+      );
+      continue;
+    }
+
+    const willSubmit = Math.random() < 0.9;
+    const status = willSubmit ? 'SUBMITTED' : 'DRAFT';
+    
+    if (willSubmit) submittedCount++;
+    else draftCount++;
+
+    // Create recipient
+    const submittedAt = willSubmit
+      ? new Date(new Date(survey.sent_at).getTime() + Math.random() * 7 * 24 * 60 * 60 * 1000) // within 7 days
+      : null;
+
+    await q(
+      c,
+      `INSERT INTO survey_recipients (survey_id, user_id, ticket_id, status, submitted_at, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (survey_id, user_id) DO NOTHING`,
+      [
+        survey.id,
+        ticket.user_id,
+        ticket.ticket_id,
+        status,
+        submittedAt,
+        new Date(survey.sent_at).toISOString()
+      ]
+    );
+
+    for (const question of questions) {
+      const rating = generateRating();
+
+      await q(
+        c,
+        `INSERT INTO survey_responses (survey_id, question_id, user_id, ticket_id, rating, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (survey_id, question_id, user_id) DO UPDATE
+           SET rating = EXCLUDED.rating`,
+        [
+          survey.id,
+          question.id,
+          ticket.user_id,
+          ticket.ticket_id,
+          rating,
+          submittedAt || new Date(survey.sent_at).toISOString()
+        ]
+      );
+    }
+
+    if (!willSubmit) {
+      const draftData = {};
+      const answeredCount = Math.floor(Math.random() * 2) + 2; 
+      for (let qi = 0; qi < answeredCount && qi < questions.length; qi++) {
+        draftData[questions[qi].id] = generateRating();
+      }
+      
+      await q(
+        c,
+        `UPDATE survey_recipients
+         SET draft_data = $3
+         WHERE survey_id = $1 AND user_id = $2`,
+        [survey.id, ticket.user_id, JSON.stringify(draftData)]
+      );
+    }
+  }
+
+  console.log(`  → Created ${submittedCount} submitted responses, ${draftCount} drafts, ${tickets.length - respondentCount} pending`);
 }
 
+function generateRating() {
+  const rand = Math.random();
+  if (rand < 0.03) return 1;  
+  if (rand < 0.10) return 2;  
+  if (rand < 0.25) return 3;  
+  if (rand < 0.60) return 4;  
+  return 5;                    
+}
 
 async function seedUsersOrgMemberships(c) {
   // Admin
@@ -310,7 +450,7 @@ async function seedPurchasesForEvent(c, eventSlug, shortPrefix) {
   }
 }
 
-async function seedPastEventCheckinsFeedback(c) {
+async function seedPastEventCheckins(c) {
   const event = await getEvent(c, "fall-retro-2025-09");
   if (!event) return;
 
@@ -332,14 +472,6 @@ async function seedPastEventCheckinsFeedback(c) {
     [event.id]
   );
 
-  // Distribute check-ins and feedback
-  const comments = [
-    'Loved the panel format and Q&A.',
-    'Great venue and smooth check-in.',
-    'Talks were insightful; would attend again.',
-    'Audio could be clearer, but content was strong.',
-    'Networking hour was the highlight!'
-  ];
 
   for (let i = 0; i < tix.length; i++) {
     const t = tix[i];
@@ -352,19 +484,22 @@ async function seedPastEventCheckinsFeedback(c) {
       eventStart: event.start_at
     });
 
-    const purchaser = t.purchaser_user_id;
-    const rating = (i % 5 === 0) ? 3 : (i % 4 === 0) ? 4 : 5;
-    const comment = comments[i % comments.length];
-    await leaveFeedback(c, {
-      eventId: event.id,
-      ticketId: t.id,
-      userId: purchaser,
-      rating,
-      comment,
-      eventEnd: event.end_at,
-      daysAfter: (i % 3) + 1
-    });
   }
+}
+
+async function updateSurveyCreator(c) {
+  const creatorId = await getUserIdByEmail(c, "olivia@org1.local");
+  if (!creatorId) return;
+
+  await q(
+    c,
+    `UPDATE surveys
+     SET created_by = $1
+     WHERE event_id = (SELECT id FROM events WHERE slug = 'fall-retro-2025-09')
+       AND created_by IS NULL`,
+    [creatorId]
+  );
+  console.log("  → Updated survey creator");
 }
 
 // ─────────────
@@ -387,9 +522,15 @@ async function main() {
     await seedPurchasesForEvent(client, "ds-summit-2025-12",           "E3");
     await seedPurchasesForEvent(client, "ai-demo-day-2026-02",         "E4");
 
-    // Past event: include check-ins + feedback for analytics
-    console.log("Populating past event orders + check-ins + feedback…");
-    await seedPastEventCheckinsFeedback(client);
+    // Past event: include check-ins 
+    console.log("Populating past event orders + check-ins ");
+    await seedPastEventCheckins(client);
+
+    // Survey responses for past event
+    console.log("Creating survey responses for past event…");
+    await updateSurveyCreator(client);
+    await seedSurveyResponses(client);
+
 
     await client.query("COMMIT");
     console.log("Seed complete :)");

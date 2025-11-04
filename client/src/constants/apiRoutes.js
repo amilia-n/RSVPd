@@ -135,6 +135,21 @@ export const API_ROUTES = {
     getUserPrefs: '/api/notifications/prefs/me',
     upsertUserPrefs: '/api/notifications/prefs/me',
   },
+    // ───────────────────────── Surveys ─────────────────────────
+  surveys: {
+    create: '/api/surveys',
+    get: (id) => `/api/surveys/${id}`,
+    update: (id) => `/api/surveys/${id}`,
+    delete: (id) => `/api/surveys/${id}`,
+    listForEvent: (eventId) => `/api/surveys/event/${eventId}`,
+    listForOrg: (orgId) => `/api/surveys/org/${orgId}`,
+    listForUser: '/api/surveys/user/me',
+    send: '/api/surveys/send',
+    saveDraft: '/api/surveys/draft',
+    submit: '/api/surveys/submit',
+    getStats: (id) => `/api/surveys/${id}/stats`,
+    getResponses: (id) => `/api/surveys/${id}/responses`,
+  },
 };
 
 export default API_ROUTES;

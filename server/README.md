@@ -190,7 +190,10 @@ The database uses PostgreSQL with the following core tables:
 | `idempotency_keys` | Idempotency key tracking |
 | `webhook_events` | Webhook event log |
 | `outbox_events` | Event sourcing outbox |
-| `event_feedback` | Post-event feedback |
+| `surveys` | Post-event surveys |
+| `survey_questions` | Survey questions (1-5 Likert scale) |
+| `survey_responses` | Attendee survey responses |
+| `survey_recipients` | Survey delivery tracking |
 | `activity_log` | Audit trail |
 
 ### Enums
