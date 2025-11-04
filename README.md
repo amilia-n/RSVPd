@@ -4,7 +4,8 @@ A comprehensive full-stack event management system that enables event organizers
 
 ## See the deployed app here:
 https://rsvpd.onrender.com/
-
+- Try creating an account as a new user, or
+- Log in as a organizer: email: olivia@org1.local password: password123
 ## Table of Contents
 
 - [Overview](#overview)
