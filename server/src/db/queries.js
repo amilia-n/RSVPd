@@ -840,34 +840,154 @@ getEventWithVenue: `
     ORDER BY created_at ASC
     LIMIT $1`,
 
-
-  // ═══════════════════════════════════════════════════════════════
-  // FEEDBACK & ACTIVITY
-  // ═══════════════════════════════════════════════════════════════
-  createEventFeedback: `
-    INSERT INTO event_feedback (event_id, ticket_id, user_id, rating, comments_md)
-    VALUES ($1,$2,$3,$4,$5)
+  // ═════════════
+  // SURVEYS
+  // ═════════════
+  
+  // Survey CRUD
+  createSurvey: `
+    INSERT INTO surveys (event_id, org_id, title, description_md, created_by)
+    VALUES ($1, $2, $3, $4, $5)
     RETURNING *`,
 
-  listFeedbackForEvent: `
-    SELECT ef.*, u.first_name || ' ' || u.last_name AS user_name, u.email AS user_email
-    FROM event_feedback ef
-    LEFT JOIN users u ON u.id = ef.user_id
-    WHERE ef.event_id=$1
-    ORDER BY ef.created_at DESC`,
+  getSurveyById: `SELECT * FROM surveys WHERE id=$1`,
 
-  getFeedbackStatsForEvent: `
+  updateSurvey: `
+    UPDATE surveys
+    SET title=$2, description_md=$3, updated_at=now()
+    WHERE id=$1
+    RETURNING *`,
+
+  publishSurvey: `
+    UPDATE surveys
+    SET is_published=true, updated_at=now()
+    WHERE id=$1
+    RETURNING *`,
+
+  markSurveySent: `
+    UPDATE surveys
+    SET sent_at=now(), updated_at=now()
+    WHERE id=$1
+    RETURNING *`,
+
+  listSurveysForEvent: `
+    SELECT * FROM surveys
+    WHERE event_id=$1
+    ORDER BY created_at DESC`,
+
+  listSurveysForOrg: `
+    SELECT s.*, e.title AS event_title
+    FROM surveys s
+    JOIN events e ON e.id = s.event_id
+    WHERE s.org_id=$1
+    ORDER BY s.created_at DESC`,
+
+  deleteSurvey: `DELETE FROM surveys WHERE id=$1 RETURNING id`,
+
+  // Survey Questions
+  createSurveyQuestion: `
+    INSERT INTO survey_questions (survey_id, question_text, question_order)
+    VALUES ($1, $2, $3)
+    RETURNING *`,
+
+  listQuestionsForSurvey: `
+    SELECT * FROM survey_questions
+    WHERE survey_id=$1
+    ORDER BY question_order ASC`,
+
+  updateSurveyQuestion: `
+    UPDATE survey_questions
+    SET question_text=$2, question_order=$3
+    WHERE id=$1
+    RETURNING *`,
+
+  deleteQuestion: `DELETE FROM survey_questions WHERE id=$1 RETURNING id`,
+
+  // Survey Recipients
+  createSurveyRecipient: `
+    INSERT INTO survey_recipients (survey_id, user_id, ticket_id, notification_id, status)
+    VALUES ($1, $2, $3, $4, 'PENDING')
+    RETURNING *`,
+
+  getSurveyRecipient: `
+    SELECT * FROM survey_recipients
+    WHERE survey_id=$1 AND user_id=$2`,
+
+  updateRecipientStatus: `
+    UPDATE survey_recipients
+    SET status=$3, submitted_at=CASE WHEN $3='SUBMITTED' THEN now() ELSE NULL END, updated_at=now()
+    WHERE survey_id=$1 AND user_id=$2
+    RETURNING *`,
+
+  updateRecipientDraft: `
+    UPDATE survey_recipients
+    SET draft_data=$3, status='DRAFT', updated_at=now()
+    WHERE survey_id=$1 AND user_id=$2
+    RETURNING *`,
+
+  listRecipientsForSurvey: `
+    SELECT sr.*, u.email, u.first_name, u.last_name
+    FROM survey_recipients sr
+    LEFT JOIN users u ON u.id = sr.user_id
+    WHERE sr.survey_id=$1
+    ORDER BY sr.created_at DESC`,
+
+  listSurveysForUser: `
+    SELECT s.*, sr.status AS recipient_status, sr.draft_data, sr.submitted_at,
+           e.title AS event_title, e.start_at AS event_start
+    FROM survey_recipients sr
+    JOIN surveys s ON s.id = sr.survey_id
+    JOIN events e ON e.id = s.event_id
+    WHERE sr.user_id=$1
+    ORDER BY s.created_at DESC`,
+
+  // Survey Responses
+  createSurveyResponse: `
+    INSERT INTO survey_responses (survey_id, question_id, user_id, ticket_id, rating)
+    VALUES ($1, $2, $3, $4, $5)
+    ON CONFLICT (survey_id, question_id, user_id)
+    DO UPDATE SET rating=EXCLUDED.rating
+    RETURNING *`,
+
+  listResponsesForSurvey: `
+    SELECT sr.*, sq.question_text, sq.question_order, u.email AS user_email
+    FROM survey_responses sr
+    JOIN survey_questions sq ON sq.id = sr.question_id
+    LEFT JOIN users u ON u.id = sr.user_id
+    WHERE sr.survey_id=$1
+    ORDER BY sr.user_id, sq.question_order`,
+
+  listResponsesForUser: `
+    SELECT * FROM survey_responses
+    WHERE survey_id=$1 AND user_id=$2
+    ORDER BY created_at`,
+
+  // Survey Analytics
+  getSurveyStats: `
     SELECT
-      COUNT(*)::int AS total_responses,
-      ROUND(AVG(rating), 2) AS avg_rating,
-      COUNT(*) FILTER (WHERE rating=5)::int AS five_star,
-      COUNT(*) FILTER (WHERE rating=4)::int AS four_star,
-      COUNT(*) FILTER (WHERE rating=3)::int AS three_star,
-      COUNT(*) FILTER (WHERE rating=2)::int AS two_star,
-      COUNT(*) FILTER (WHERE rating=1)::int AS one_star
-    FROM event_feedback
-    WHERE event_id=$1`,
+      (SELECT COUNT(*)::int FROM survey_recipients WHERE survey_id=$1) AS total_sent,
+      (SELECT COUNT(*)::int FROM survey_recipients WHERE survey_id=$1 AND status='SUBMITTED') AS total_submitted,
+      (SELECT COUNT(*)::int FROM survey_recipients WHERE survey_id=$1 AND status='DRAFT') AS total_draft,
+      (SELECT COUNT(DISTINCT user_id)::int FROM survey_responses WHERE survey_id=$1) AS unique_respondents`,
 
+  getQuestionStats: `
+    SELECT
+      sq.id AS question_id,
+      sq.question_text,
+      sq.question_order,
+      COUNT(sr.id)::int AS response_count,
+      ROUND(AVG(sr.rating), 2) AS avg_rating,
+      COUNT(*) FILTER (WHERE sr.rating=5)::int AS rating_5,
+      COUNT(*) FILTER (WHERE sr.rating=4)::int AS rating_4,
+      COUNT(*) FILTER (WHERE sr.rating=3)::int AS rating_3,
+      COUNT(*) FILTER (WHERE sr.rating=2)::int AS rating_2,
+      COUNT(*) FILTER (WHERE sr.rating=1)::int AS rating_1
+    FROM survey_questions sq
+    LEFT JOIN survey_responses sr ON sr.question_id = sq.id
+    WHERE sq.survey_id=$1
+    GROUP BY sq.id, sq.question_text, sq.question_order
+    ORDER BY sq.question_order`,
+    
   logActivity: `
     INSERT INTO activity_log (actor_user_id, action, entity_type, entity_id, meta)
     VALUES ($1,$2,$3,$4,$5)
@@ -994,13 +1114,11 @@ getEventWithVenue: `
       COUNT(DISTINCT o.id)::int  AS total_orders,
       COUNT(DISTINCT t.id)::int  AS total_tickets_sold,
       COUNT(DISTINCT ci.id)::int AS attendees_checked_in,
-      SUM(CASE WHEN o.status='PAID' THEN o.total_cents ELSE 0 END)::bigint AS revenue_cents,
-      ROUND(AVG(ef.rating), 2) AS avg_rating
+      SUM(CASE WHEN o.status='PAID' THEN o.total_cents ELSE 0 END)::bigint AS revenue_cents
     FROM events e
     LEFT JOIN orders o     ON o.event_id = e.id
     LEFT JOIN tickets t    ON t.event_id = e.id AND t.status='ACTIVE'
     LEFT JOIN check_ins ci ON ci.event_id = e.id
-    LEFT JOIN event_feedback ef ON ef.event_id = e.id
     WHERE e.id=$1
     GROUP BY e.id, e.title, e.status, e.start_at`,
 };

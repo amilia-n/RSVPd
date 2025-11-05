@@ -1,12 +1,34 @@
 import { useQuery } from "@tanstack/react-query";
-import { Ticket, ShoppingBag, Calendar } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Ticket,
+  ShoppingBag,
+  Calendar,
+  Bell,
+  FileText,
+  Send,
+} from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Spinner } from "@/components/ui/spinner";
 import ticketsApi from "@/features/tickets/tickets.api";
 import ordersApi from "@/features/orders/orders.api";
+import surveysApi from "@/features/surveys/surveys.api";
+import notificationsApi from "@/features/notifications/notifications.api";
 import { queryKeys } from "@/utils/queryKeys";
 import { PATHS } from "@/routes/paths";
 import { Link } from "react-router-dom";
@@ -23,7 +45,16 @@ export default function AttendeeDashboardPage() {
     queryKey: queryKeys.orders.listForUser(),
     queryFn: () => ordersApi.listForUser(),
   });
+  const { data: notifications } = useQuery({
+    queryKey: ["notifications", "me"],
+    queryFn: () => notificationsApi.listForUser({ limit: 10 }),
+  });
 
+  // Fetch user's surveys
+  const { data: mySurveys } = useQuery({
+    queryKey: ["surveys", "me"],
+    queryFn: () => surveysApi.listForUser(),
+  });
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div>
@@ -69,7 +100,9 @@ export default function AttendeeDashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Upcoming Events</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Upcoming Events
+            </CardTitle>
             <Calendar className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -81,7 +114,104 @@ export default function AttendeeDashboardPage() {
           </CardContent>
         </Card>
       </div>
+      {/* Inbox / Notifications Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Bell className="size-5" />
+            <CardTitle>Inbox & Notifications</CardTitle>
+          </div>
+          <CardDescription>
+            Messages and surveys from event organizers
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {/* Surveys */}
+            {mySurveys?.rows && mySurveys.rows.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="font-semibold text-sm flex items-center gap-2">
+                  <FileText className="size-4" />
+                  Surveys (
+                  {
+                    mySurveys.rows.filter(
+                      (s) => s.recipient_status !== "SUBMITTED"
+                    ).length
+                  }{" "}
+                  pending)
+                </h3>
+                {mySurveys.rows.map((survey) => (
+                  <div
+                    key={survey.id}
+                    className="p-3 border rounded-lg hover:bg-accent transition-colors"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-medium">{survey.title}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          {survey.event_title}
+                        </p>
+                        <Badge
+                          variant={
+                            survey.recipient_status === "SUBMITTED"
+                              ? "default"
+                              : survey.recipient_status === "DRAFT"
+                              ? "secondary"
+                              : "outline"
+                          }
+                          className="mt-2"
+                        >
+                          {survey.recipient_status}
+                        </Badge>
+                      </div>
+                      {survey.recipient_status !== "SUBMITTED" && (
+                        <Link to={`/surveys/${survey.id}/respond`}>
+                          <Button size="sm" variant="outline">
+                            {survey.recipient_status === "DRAFT"
+                              ? "Continue"
+                              : "Start Survey"}
+                          </Button>
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
+            {/* Notifications */}
+            {notifications?.rows && notifications.rows.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="font-semibold text-sm flex items-center gap-2">
+                  <Bell className="size-4" />
+                  Recent Notifications
+                </h3>
+                {notifications.rows.slice(0, 5).map((notif) => (
+                  <div key={notif.id} className="p-3 border rounded-lg text-sm">
+                    <p className="font-medium">{notif.title}</p>
+                    {notif.body_md && (
+                      <p className="text-muted-foreground mt-1">
+                        {notif.body_md}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {new Date(notif.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {(!mySurveys?.rows || mySurveys.rows.length === 0) &&
+              (!notifications?.rows || notifications.rows.length === 0) && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Bell className="size-12 mx-auto mb-2 opacity-50" />
+                  <p>No notifications or surveys</p>
+                </div>
+              )}
+          </div>
+        </CardContent>
+      </Card>
       {/* Recent Tickets */}
       <Card>
         <CardHeader>

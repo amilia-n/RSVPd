@@ -495,16 +495,54 @@ CREATE TABLE IF NOT EXISTS outbox_events (
   published_at  timestamptz
 );
 
--- Feedback
-CREATE TABLE IF NOT EXISTS event_feedback (
-  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  event_id    uuid NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-  ticket_id   uuid REFERENCES tickets(id) ON DELETE SET NULL,
-  user_id     uuid REFERENCES users(id) ON DELETE SET NULL,
-  rating      integer CHECK (rating BETWEEN 1 AND 5),
-  comments_md text,
-  created_at  timestamptz NOT NULL DEFAULT now()
+-- Post-Event Surveys
+CREATE TABLE IF NOT EXISTS surveys (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id        uuid NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  org_id          uuid REFERENCES organizations(id) ON DELETE CASCADE,
+  title           text NOT NULL,
+  description_md  text,
+  created_by      uuid REFERENCES users(id) ON DELETE SET NULL,
+  is_published    boolean NOT NULL DEFAULT false,
+  sent_at         timestamptz,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  updated_at      timestamptz NOT NULL DEFAULT now()
 );
+
+CREATE TABLE IF NOT EXISTS survey_questions (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  survey_id       uuid NOT NULL REFERENCES surveys(id) ON DELETE CASCADE,
+  question_text   text NOT NULL,
+  question_order  integer NOT NULL DEFAULT 1,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  CHECK (question_order >= 1 AND question_order <= 5)
+);
+
+CREATE TABLE IF NOT EXISTS survey_responses (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  survey_id       uuid NOT NULL REFERENCES surveys(id) ON DELETE CASCADE,
+  question_id     uuid NOT NULL REFERENCES survey_questions(id) ON DELETE CASCADE,
+  user_id         uuid REFERENCES users(id) ON DELETE SET NULL,
+  ticket_id       uuid REFERENCES tickets(id) ON DELETE SET NULL,
+  rating          integer NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (survey_id, question_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS survey_recipients (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  survey_id       uuid NOT NULL REFERENCES surveys(id) ON DELETE CASCADE,
+  user_id         uuid REFERENCES users(id) ON DELETE SET NULL,
+  ticket_id       uuid REFERENCES tickets(id) ON DELETE SET NULL,
+  notification_id uuid REFERENCES notifications(id) ON DELETE SET NULL,
+  status          text NOT NULL DEFAULT 'PENDING', -- PENDING, DRAFT, SUBMITTED
+  draft_data      jsonb NOT NULL DEFAULT '{}'::jsonb, -- Store partial responses
+  submitted_at    timestamptz,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  updated_at      timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (survey_id, user_id)
+);
+
 
 -- Audit log 
 CREATE TABLE IF NOT EXISTS activity_log (
@@ -537,6 +575,8 @@ CREATE TRIGGER notifications_u  BEFORE UPDATE ON notifications  FOR EACH ROW EXE
 CREATE TRIGGER waitlist_entries_u BEFORE UPDATE ON waitlist_entries FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER promo_codes_u    BEFORE UPDATE ON promo_codes    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER events_search_vector BEFORE INSERT OR UPDATE OF title, summary, description_md, tags ON events FOR EACH ROW EXECUTE FUNCTION set_event_search_vector();
+CREATE TRIGGER surveys_u BEFORE UPDATE ON surveys FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER survey_recipients_u BEFORE UPDATE ON survey_recipients FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- ───────────
 -- 6) INDEXES 
@@ -619,6 +659,14 @@ CREATE INDEX IF NOT EXISTS notifications_queue_idx
 
 -- Outbox
 CREATE INDEX IF NOT EXISTS outbox_topic_created_idx ON outbox_events(topic, created_at DESC);
+
+-- Post-event surveys
+CREATE INDEX IF NOT EXISTS surveys_event_idx ON surveys(event_id);
+CREATE INDEX IF NOT EXISTS survey_questions_survey_idx ON survey_questions(survey_id, question_order);
+CREATE INDEX IF NOT EXISTS survey_responses_survey_idx ON survey_responses(survey_id);
+CREATE INDEX IF NOT EXISTS survey_responses_user_idx ON survey_responses(user_id);
+CREATE INDEX IF NOT EXISTS survey_recipients_survey_user_idx ON survey_recipients(survey_id, user_id);
+CREATE INDEX IF NOT EXISTS survey_recipients_status_idx ON survey_recipients(status);
 
 -- Webhook events
 CREATE INDEX IF NOT EXISTS webhook_events_unhandled_idx

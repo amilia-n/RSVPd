@@ -17,9 +17,9 @@ INSERT INTO venues (org_id, name, address1, city, state_code, postal_code, count
 VALUES
   ((SELECT id FROM o WHERE slug='org-one'),   'Hudson Hall',             '123 Riverside Dr',     'New York',     'NY', '10027', 'US',     80),
   ((SELECT id FROM o WHERE slug='org-one'),   'Brooklyn Workshop Loft',  '44 Kingsland Ave',     'Brooklyn',     'NY', '11211', 'US',     20),
-  ((SELECT id FROM o WHERE slug='org-two'),   'Downtown Convention Ctr', '500 Market St',        'Philadelphia', 'PA', '19106', 'US',    200),
+  ((SELECT id FROM o WHERE slug='org-one'),   'Downtown Convention Ctr', '500 Market St',        'Philadelphia', 'PA', '19106', 'US',    200),
   ((SELECT id FROM o WHERE slug='org-two'),   'Innovation Hub',          '700 Liberty Ave',      'Pittsburgh',   'PA', '15222', 'US',     60),
-  ((SELECT id FROM o WHERE slug='org-three'), 'Mission Theater',         '240 Valencia St',      'San Francisco','CA', '94103', 'US',  90)
+  ((SELECT id FROM o WHERE slug='org-one'), 'Mission Theater',         '240 Valencia St',      'San Francisco','CA', '94103', 'US',  90)
 ON CONFLICT DO NOTHING;
 
 -- ─────────────────────────────────────────────
@@ -30,9 +30,9 @@ INSERT INTO speakers (org_id, full_name, title, company, bio_md, headshot_url)
 VALUES
   ((SELECT id FROM o WHERE slug='org-one'),   'Jamal Ortega', 'Staff Engineer',      'Astera',   'Distributed systems nerd.',      'https://picsum.photos/seed/jamal/200/200'),
   ((SELECT id FROM o WHERE slug='org-one'),   'Mina Patel',   'Frontend Lead',       'Nimbus',   'Accessibility + DX advocate.',   'https://picsum.photos/seed/mina/200/200'),
-  ((SELECT id FROM o WHERE slug='org-two'),   'Eric Sung',    'Principal Scientist', 'Quantica', 'Time series & forecasting.',     'https://picsum.photos/seed/eric/200/200'),
+  ((SELECT id FROM o WHERE slug='org-one'),   'Eric Sung',    'Principal Scientist', 'Quantica', 'Time series & forecasting.',     'https://picsum.photos/seed/eric/200/200'),
   ((SELECT id FROM o WHERE slug='org-two'),   'Hyejin Park',  'CTO',                 'ArcWorks', 'LLM systems in production.',     'https://picsum.photos/seed/hyejin/200/200'),
-  ((SELECT id FROM o WHERE slug='org-three'), 'Sophie Nguyen','Head of Product',     'Kitewave', 'Product strategy & growth.',     'https://picsum.photos/seed/sophie/200/200')
+  ((SELECT id FROM o WHERE slug='org-one'), 'Sophie Nguyen','Head of Product',     'Kitewave', 'Product strategy & growth.',     'https://picsum.photos/seed/sophie/200/200')
 ON CONFLICT DO NOTHING;
 
 -- ─────────────────────────────────────────────
@@ -64,7 +64,7 @@ VALUES
     FALSE, NULL, 'https://picsum.photos/seed/holidayjs/800/400', ARRAY['javascript','workshop','hands-on']),
 
   -- org-two
-  ((SELECT id FROM orgs WHERE slug='org-two'), (SELECT id FROM v WHERE name='Downtown Convention Ctr'),
+  ((SELECT id FROM orgs WHERE slug='org-one'), (SELECT id FROM v WHERE name='Downtown Convention Ctr'),
     'Data Science Summit', 'ds-summit-2025-12',
     'Talks, tutorials, and expo.', 'ML • MLOps • Analytics',
     'PUBLISHED','PUBLIC','CONFERENCE', 200,
@@ -80,8 +80,8 @@ VALUES
     TIMESTAMPTZ '2025-12-01 09:00:00-05', TIMESTAMPTZ '2026-02-05 13:00:00-05',
     FALSE, NULL, 'https://picsum.photos/seed/aidemo/800/400', ARRAY['startups','ai','demo']),
 
-  -- org-three (PAST)
-  ((SELECT id FROM orgs WHERE slug='org-three'), (SELECT id FROM v WHERE name='Mission Theater'),
+  -- org-one (PAST)
+  ((SELECT id FROM orgs WHERE slug='org-one'), (SELECT id FROM v WHERE name='Mission Theater'),
     'Fall Retrospective 2025', 'fall-retro-2025-09',
     'Panel + mixer looking back at the year.', 'Reflection • Trends • Community',
     'COMPLETED','PUBLIC','MEETUP', 90, 
@@ -136,6 +136,49 @@ ON CONFLICT DO NOTHING;
 INSERT INTO promo_codes (org_id, event_id, code, percent_off, amount_off_cents, currency, max_redemptions, per_user_limit, starts_at, ends_at, is_active)
 SELECT e.org_id, e.id, 'EARLY BIRD', 20, NULL, 'USD', NULL, NULL, e.sales_start_at, e.sales_end_at, TRUE
 FROM events e
+ON CONFLICT DO NOTHING;
+
+-- ─────────────────────────────────────────────
+-- 7) POST-EVENT SURVEYS
+-- ─────────────────────────────────────────────
+
+WITH past_event AS (
+  SELECT e.id AS event_id, e.org_id
+  FROM events e
+  WHERE e.slug = 'fall-retro-2025-09'
+  LIMIT 1
+)
+INSERT INTO surveys (event_id, org_id, title, description_md, created_by, is_published, sent_at, created_at)
+SELECT 
+  event_id,
+  org_id,
+  'Fall Retrospective 2025 Feedback Survey',
+  'Thank you for attending! Please share your thoughts about the event.',
+  NULL,  
+  TRUE, 
+  TIMESTAMPTZ '2025-09-16 10:00:00-07', 
+  TIMESTAMPTZ '2025-09-16 09:00:00-07'  
+FROM past_event
+ON CONFLICT DO NOTHING;
+
+-- Add 5 survey questions (1-5 Likert scale)
+WITH survey_ref AS (
+  SELECT s.id AS survey_id
+  FROM surveys s
+  JOIN events e ON e.id = s.event_id
+  WHERE e.slug = 'fall-retro-2025-09'
+  LIMIT 1
+)
+INSERT INTO survey_questions (survey_id, question_text, question_order)
+SELECT survey_id, q.text, q.ord
+FROM survey_ref
+CROSS JOIN (VALUES
+  ('The event was well-organized and ran smoothly.', 1),
+  ('The speakers and content were engaging and valuable.', 2),
+  ('The venue was comfortable and suitable for the event.', 3),
+  ('I would recommend this event to colleagues.', 4),
+  ('I would attend future events from this organization.', 5)
+) AS q(text, ord)
 ON CONFLICT DO NOTHING;
 
 COMMIT;

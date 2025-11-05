@@ -18,6 +18,7 @@ import paymentsRoutes from './src/routes/payments.routes.js';
 import ticketsRoutes from './src/routes/tickets.routes.js';
 import checkinsRoutes from './src/routes/checkins.routes.js';
 import notificationsRoutes from './src/routes/notifications.routes.js';
+import surveysRoutes from './src/routes/surveys.routes.js';
 
 import * as paymentsController from "./src/controllers/payments.controller.js";
 
@@ -35,7 +36,6 @@ app.post(
   (req, res, next) => paymentsController.webhook(req, res, next)
 );
 
-// const dist = path.join(process.cwd(), '..', 'client', 'dist');
 app.use(cors({ origin: config.CORS_ORIGIN, credentials: true }));
 app.use(morgan('dev'));
 app.use(express.json());
@@ -58,6 +58,7 @@ app.use('/api/payments', paymentsRoutes);
 app.use('/api/tickets', ticketsRoutes);
 app.use('/api/checkins', checkinsRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/surveys', surveysRoutes);
 
 // Serve static files from client build
 app.use(express.static(dist));

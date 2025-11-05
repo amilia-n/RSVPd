@@ -31,6 +31,10 @@ export const PATHS = {
   checkinsLive: "/checkins/live",
   checkinsLiveForEvent: (eventId) => `/checkins/live/${eventId}`,
 
+  // Surveys
+  surveyRespond: (id) => `/surveys/${id}/respond`,
+  surveyResults: (id) => `/surveys/${id}/results`,
+  
   // analytics
   eventAnalytics: (eventId) => `/events/${eventId}/analytics`,
   orgAnalytics: (orgSlug) => `/orgs/${orgSlug}/analytics`,

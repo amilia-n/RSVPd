@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";  // ← Removed BrowserRouter
+import { Routes, Route } from "react-router-dom";  
 import Shell from "@/components/layout/Shell";
 import RoleRedirect from "@/routes/RoleRedirect";
 import ProtectedRoute from "@/routes/ProtectedRoute";
@@ -24,6 +24,8 @@ import TicketDetailPage from "@/features/tickets/TicketDetailPage";
 import MyTicketsPage from "@/features/tickets/MyTicketsPage";
 import LoginPage from "@/features/auth/LoginPage";
 import RegisterPage from "@/features/auth/RegisterPage";
+import SurveyResponsePage from "@/features/surveys/SurveyResponsePage";
+import SurveyResultsPage from "@/features/surveys/SurveyResultsPage";
 
 export default function App() {
   return (
@@ -62,6 +64,12 @@ export default function App() {
           <Route path={PATHS.tickets} element={<MyTicketsPage />} />
           <Route path="/tickets/:id" element={<TicketDetailPage />} />
           <Route path="/orders/:id" element={<OrderDetailPage />} />
+        </Route>
+
+        {/* Surveys */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/surveys/:surveyId/respond" element={<SurveyResponsePage />} />
+          <Route path="/surveys/:surveyId/results" element={<SurveyResultsPage />} />
         </Route>
       </Routes>
     </Shell>
